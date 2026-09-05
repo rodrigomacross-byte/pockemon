@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Vitrina · Escáner de cartas</title>
+<title>Vitrina · Cartas</title>
 
 <!--
   ══════════════════════════════════════════════════════════════════════
@@ -11,75 +11,66 @@
   ══════════════════════════════════════════════════════════════════════
 
   1) CREDENCIALES DE GOOGLE (obligatorio)
-     Busca en el <script> de más abajo el bloque "CONFIGURACIÓN" y reemplaza:
-       - CLIENT_ID: el Client ID OAuth 2.0 de tipo "Aplicación web".
-       - FOLDER_ID: el ID de la carpeta de Drive donde guardas las imágenes
-                    de las cartas (está en la URL de la carpeta en Drive:
-                    https://drive.google.com/drive/folders/ESTE_ES_EL_ID).
+     Busca el bloque "CONFIGURACIÓN" en el <script> y reemplaza:
+       - CLIENT_ID: Client ID OAuth 2.0 de tipo "Aplicación web".
+       - FOLDER_ID: ID de la carpeta de Drive donde se guardan y buscan
+                    las cartas (está en la URL de la carpeta en Drive).
 
-     Pasos en Google Cloud Console (console.cloud.google.com):
-       a. Crea o selecciona un proyecto.
-       b. En "APIs y servicios > Biblioteca", activa "Google Drive API".
-       c. En "APIs y servicios > Pantalla de consentimiento OAuth",
-          configura el tipo (Externo/Interno) y agrega tu correo como
-          usuario de prueba si el proyecto está en modo "Testing".
-       d. En "APIs y servicios > Credenciales", crea unas credenciales de
-          tipo "ID de cliente de OAuth 2.0" > "Aplicación web".
-       e. En "Orígenes de JavaScript autorizados" agrega, por ejemplo:
-            http://localhost:8000
-            http://127.0.0.1:8000
-            https://tu-dominio-final.com
-          (localhost está exento del requisito de HTTPS solo para pruebas
-          locales; en producción SÍ necesitas HTTPS).
-       f. Copia el "Client ID" generado y pégalo en CLIENT_ID más abajo.
+  2) IMPORTANTE — CAMBIO DE PERMISOS (drive.readonly → drive)
+     Esta versión ya no solo BUSCA cartas: también las GUARDA en Drive al
+     escanearlas. Para poder escribir archivos nuevos dentro de una
+     carpeta que ya existía antes de esta app (no creada por ella), el
+     scope de OAuth debe ser el de Drive completo:
+       https://www.googleapis.com/auth/drive
+     (el scope 'drive.readonly' o 'drive.file' no alcanzan para esto).
 
-     El scope solicitado es 'drive.readonly' (solo lectura), suficiente
-     para buscar y visualizar imágenes sin exponer ni modificar nada.
+     Como es un permiso más amplio, Google puede mostrar una advertencia
+     más fuerte en la pantalla de login ("esta app quiere ver, editar,
+     crear y borrar tus archivos de Drive"). Mientras el proyecto esté en
+     modo "Testing" y tu cuenta esté en la lista de "Test users", puedes
+     seguir igual tocando "Avanzado" → "Ir a [tu app] (no seguro)".
 
-  2) CÓMO PROBARLO EN LOCAL
-     Los navegadores exigen un "contexto seguro" para usar la cámara
-     (getUserMedia), y Google Identity Services exige un origen
-     autorizado. "localhost" cumple ambos requisitos sin necesidad de
-     certificado HTTPS. Opciones simples para levantar un servidor local:
+     Si ya habías conectado Drive con la versión anterior (de solo
+     lectura), vuelve a tocar "Conectar con Google Drive" en esta nueva
+     versión: te va a pedir iniciar sesión de nuevo para otorgar el
+     permiso ampliado.
 
+  3) CÓMO PROBARLO EN LOCAL
+     La cámara (getUserMedia) y el login de Google exigen un "contexto
+     seguro". localhost cumple ese requisito sin HTTPS:
        Python 3:   python3 -m http.server 8000
        Node:       npx serve -l 8000
-       VSCode:     extensión "Live Server"
+     Abre http://localhost:8000 (no lo abras con doble clic / file://).
 
-     Luego abre http://localhost:8000 en el navegador (no abras el
-     archivo con doble clic / file://, la cámara y el login de Google no
-     funcionarán así).
-
-  3) PRIVACIDAD
+  4) PRIVACIDAD
      - El video, la captura de imagen y el OCR (Tesseract.js) se procesan
-       enteramente en el navegador del usuario. Ninguna imagen de la carta
-       viaja a un servidor propio ni de terceros distinto de Google Drive.
-     - Las imágenes encontradas en Drive se descargan como blob binario
-       autenticado (Authorization: Bearer <token>) y se muestran con
-       URL.createObjectURL; los archivos permanecen privados en Drive, no
-       se cambian permisos ni se generan enlaces públicos.
+       enteramente en el navegador del usuario.
+     - El archivo que se sube a Drive (foto o PDF, el que resulte más
+       liviano) se genera también en el navegador y se sube directo a la
+       API de Drive con tu token — no pasa por ningún servidor propio.
   ══════════════════════════════════════════════════════════════════════
 -->
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=Baloo+2:wght@600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 
 <style>
   :root{
-    --ink:#14151A;
-    --ink-soft:#1E2027;
-    --panel:#24262F;
-    --case:#EFE6D8;
-    --case-line:#C9BBA1;
-    --gold:#D4AF37;
-    --teal:#4FD1C5;
-    --danger:#E2604F;
-    --text-hi:#F3F1EC;
-    --text-lo:#9A9CA8;
-    --radius-lg:18px;
-    --radius-sm:8px;
+    --ink:#1A1330;
+    --ink-soft:#241B42;
+    --panel:#2C2154;
+    --case:#FFF6E6;
+    --case-line:#EAD9A8;
+    --gold:#FFC940;
+    --teal:#3FDD9B;
+    --danger:#FF5C5C;
+    --text-hi:#FBF7FF;
+    --text-lo:#B3A6DE;
+    --radius-lg:22px;
+    --radius-sm:12px;
     --font-display:'Sora', system-ui, sans-serif;
+    --font-fun:'Baloo 2', var(--font-display);
     --font-mono:'JetBrains Mono', 'Courier New', monospace;
   }
 
@@ -88,7 +79,9 @@
   html,body{
     margin:0;
     padding:0;
-    background:var(--ink);
+    background:
+      radial-gradient(ellipse 900px 500px at 50% -10%, rgba(255,201,64,0.10), transparent),
+      var(--ink);
     color:var(--text-hi);
     font-family:var(--font-display);
     -webkit-font-smoothing:antialiased;
@@ -98,7 +91,7 @@
     min-height:100vh;
     display:flex;
     justify-content:center;
-    padding:28px 16px 64px;
+    padding:28px 16px 90px;
   }
 
   .app{
@@ -110,14 +103,16 @@
     display:flex;
     align-items:baseline;
     justify-content:space-between;
-    margin-bottom:22px;
+    margin-bottom:18px;
   }
 
   header.topbar h1{
-    font-size:1.15rem;
+    font-family:var(--font-fun);
+    font-size:1.4rem;
     font-weight:700;
     margin:0;
     letter-spacing:0.01em;
+    color:var(--gold);
   }
 
   header.topbar .tag{
@@ -126,7 +121,7 @@
     color:var(--text-lo);
   }
 
-  /* ── Tarjeta de conexión con Drive ────────────────────────────────── */
+  /* ── Tarjeta de conexión con Drive (siempre visible) ─────────────────── */
 
   .drive-strip{
     display:flex;
@@ -137,7 +132,7 @@
     border-radius:var(--radius-sm);
     padding:12px 14px;
     margin-bottom:18px;
-    border:1px solid #2E3038;
+    border:1px solid rgba(255,255,255,0.12);
   }
 
   .drive-status{
@@ -156,7 +151,6 @@
     flex-shrink:0;
     transition:background 0.25s ease;
   }
-
   .status-dot.connected{ background:var(--teal); }
 
   button{
@@ -172,13 +166,146 @@
 
   .btn-ghost{
     background:transparent;
-    border:1px solid #3A3D48;
+    border:1px solid rgba(255,255,255,0.18);
     color:var(--text-hi);
-    padding:8px 14px;
+    padding:9px 15px;
+    font-family:var(--font-fun);
     font-size:0.78rem;
   }
 
-  /* ── Visor de cámara ──────────────────────────────────────────────── */
+  /* ══════════════════════════════════════════════════════════════════
+     VISTA DE INICIO: buscador en vivo + cuadrícula de resultados
+     ══════════════════════════════════════════════════════════════════ */
+
+  .search-home{
+    margin-bottom:16px;
+  }
+
+  .search-home label{
+    display:block;
+    font-family:var(--font-mono);
+    font-size:0.7rem;
+    color:var(--text-lo);
+    margin-bottom:6px;
+  }
+
+  .search-home input{
+    width:100%;
+    background:var(--panel);
+    border:1px solid rgba(255,255,255,0.18);
+    border-radius:var(--radius-sm);
+    padding:14px 16px;
+    color:var(--text-hi);
+    font-family:var(--font-mono);
+    font-size:1rem;
+  }
+  .search-home input:focus{
+    outline:none;
+    border-color:var(--teal);
+  }
+
+  .home-hint{
+    text-align:center;
+    padding:36px 16px;
+    color:var(--text-lo);
+    font-size:0.85rem;
+  }
+
+  .home-grid{
+    display:grid;
+    grid-template-columns:repeat(3, 1fr);
+    gap:12px;
+  }
+
+  .home-card{
+    background:none;
+    border:none;
+    padding:0;
+    cursor:pointer;
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    text-align:left;
+  }
+
+  .home-card img{
+    width:100%;
+    aspect-ratio:63/88;
+    object-fit:cover;
+    border-radius:10px;
+    border:1px solid rgba(255,255,255,0.14);
+    background:var(--case);
+  }
+
+  .home-card .home-card-name{
+    font-size:0.7rem;
+    color:var(--text-lo);
+    line-height:1.25;
+    word-break:break-word;
+  }
+
+  /* botón flotante para abrir el escáner */
+  .btn-fab{
+    position:fixed;
+    left:50%;
+    bottom:24px;
+    transform:translateX(-50%);
+    width:min(440px, calc(100% - 32px));
+    background:linear-gradient(135deg, var(--gold), #FF9F45);
+    color:#2A1B00;
+    font-family:var(--font-fun);
+    font-weight:700;
+    font-size:1rem;
+    padding:16px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    box-shadow:0 10px 26px rgba(0,0,0,0.35);
+    z-index:20;
+  }
+
+  /* ══════════════════════════════════════════════════════════════════
+     VISTA DE ESCANEO
+     ══════════════════════════════════════════════════════════════════ */
+
+  #scanView{ display:none; }
+
+  .scan-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:14px;
+  }
+
+  .scan-header h2{
+    font-family:var(--font-fun);
+    font-size:1.05rem;
+    margin:0;
+    color:var(--text-hi);
+  }
+
+  .mode-toggle{
+    display:flex;
+    gap:8px;
+    margin-bottom:12px;
+  }
+
+  .mode-btn{
+    flex:1;
+    background:var(--panel);
+    border:1px solid rgba(255,255,255,0.12);
+    color:var(--text-lo);
+    font-family:var(--font-fun);
+    font-size:0.78rem;
+    padding:10px 8px;
+  }
+
+  .mode-btn.active{
+    background:rgba(255,201,64,0.14);
+    border-color:var(--gold);
+    color:var(--text-hi);
+  }
 
   .scanner{
     position:relative;
@@ -187,10 +314,10 @@
     background:#000;
     border-radius:var(--radius-lg);
     overflow:hidden;
-    border:1px solid #2E3038;
+    border:1px solid rgba(255,255,255,0.12);
   }
 
-  video{
+  video, #staticImg{
     width:100%;
     height:100%;
     object-fit:cover;
@@ -198,7 +325,7 @@
     transform:scaleX(var(--mirror, 1));
   }
 
-  .scanner .no-camera{
+  .scanner .no-camera, .scanner .no-file-msg{
     position:absolute;
     inset:0;
     display:flex;
@@ -209,8 +336,8 @@
     color:var(--text-lo);
     font-size:0.85rem;
   }
+  .scanner .no-file-msg{ display:none; }
 
-  /* guía visual con proporción de carta de coleccionable (63:88) */
   .card-guide{
     position:absolute;
     top:50%;
@@ -227,18 +354,18 @@
   .card-guide::before{
     content:"";
     position:absolute;
-    left:8%;
-    right:8%;
-    top:6%;
-    height:20%;
-    border:1px dashed rgba(212,175,55,0.75);
+    left:6%;
+    right:6%;
+    top:-2%;
+    height:30%;
+    border:1px dashed rgba(255,201,64,0.75);
     border-radius:6px;
   }
 
   .card-guide .hint{
     position:absolute;
-    left:8%;
-    top:6%;
+    left:6%;
+    top:-2%;
     transform:translateY(-135%);
     font-family:var(--font-mono);
     font-size:0.62rem;
@@ -253,15 +380,8 @@
     opacity:0;
     pointer-events:none;
   }
-  .scan-flash.fire{
-    animation:flash 0.35s ease-out;
-  }
-  @keyframes flash{
-    0%{ opacity:0.85; }
-    100%{ opacity:0; }
-  }
-
-  /* ── Controles bajo el visor ──────────────────────────────────────── */
+  .scan-flash.fire{ animation:flash 0.35s ease-out; }
+  @keyframes flash{ 0%{ opacity:0.85; } 100%{ opacity:0; } }
 
   .controls{
     display:flex;
@@ -272,14 +392,17 @@
 
   .btn-scan{
     flex:1;
-    background:var(--gold);
-    color:#1A1712;
-    padding:14px 16px;
-    font-size:0.92rem;
+    background:linear-gradient(135deg, var(--gold), #FF9F45);
+    color:#2A1B00;
+    font-family:var(--font-fun);
+    padding:15px 16px;
+    font-size:0.98rem;
+    font-weight:700;
     display:flex;
     align-items:center;
     justify-content:center;
     gap:8px;
+    box-shadow:0 6px 18px rgba(255,159,69,0.25);
   }
 
   .btn-icon{
@@ -287,7 +410,7 @@
     height:46px;
     flex-shrink:0;
     background:var(--panel);
-    border:1px solid #3A3D48;
+    border:1px solid rgba(255,255,255,0.18);
     color:var(--text-hi);
     display:flex;
     align-items:center;
@@ -295,12 +418,10 @@
     font-size:1.05rem;
   }
 
-  /* ── Loaders ──────────────────────────────────────────────────────── */
-
   .progress-line{
     height:3px;
     width:100%;
-    background:#2E3038;
+    background:rgba(255,255,255,0.12);
     border-radius:3px;
     overflow:hidden;
     margin-top:12px;
@@ -327,106 +448,98 @@
     min-height:14px;
   }
 
-  /* ── Campo de búsqueda ────────────────────────────────────────────── */
-
-  .search-block{
-    margin-top:26px;
-  }
-
-  .search-block label{
-    display:block;
-    font-family:var(--font-mono);
-    font-size:0.7rem;
-    color:var(--text-lo);
-    margin-bottom:6px;
-  }
-
-  .search-row{
+  .saved-log{
+    margin-top:14px;
     display:flex;
+    flex-direction:column;
+    gap:6px;
+  }
+
+  .saved-log-item{
+    display:flex;
+    align-items:center;
     gap:8px;
-  }
-
-  .search-row input{
-    flex:1;
     background:var(--panel);
-    border:1px solid #3A3D48;
+    border:1px solid rgba(255,255,255,0.12);
     border-radius:var(--radius-sm);
-    padding:12px 14px;
+    padding:9px 12px;
+    font-size:0.78rem;
     color:var(--text-hi);
+  }
+  .saved-log-item .check{ color:var(--teal); }
+  .saved-log-item .meta{
+    margin-left:auto;
     font-family:var(--font-mono);
-    font-size:0.9rem;
-  }
-  .search-row input:focus{
-    outline:none;
-    border-color:var(--teal);
+    font-size:0.64rem;
+    color:var(--text-lo);
   }
 
-  .btn-search{
-    background:var(--teal);
-    color:#0B211E;
-    padding:0 18px;
-    font-size:0.85rem;
+  /* ══════════════════════════════════════════════════════════════════
+     LIGHTBOX: carta ampliada (al tocar una miniatura del inicio)
+     ══════════════════════════════════════════════════════════════════ */
+
+  .lightbox{
+    position:fixed;
+    inset:0;
+    background:rgba(10,7,20,0.82);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    padding:24px;
+    z-index:40;
   }
+  .lightbox.active{ display:flex; }
 
-  /* ── Panel de resultado (la "vitrina") ────────────────────────────── */
-
-  .result{
-    margin-top:24px;
+  .lightbox-card{
     background:var(--case);
     border-radius:var(--radius-lg);
-    padding:18px;
+    overflow:hidden;
+    width:100%;
+    max-width:340px;
     color:#2A2416;
-    min-height:120px;
-    display:none;
-  }
-  .result.active{ display:block; }
-
-  .result-empty{
-    text-align:center;
-    padding:20px 10px;
-    color:#7A6F55;
-    font-size:0.88rem;
   }
 
-  .result-hit{
+  .lightbox-imgwrap{
+    width:100%;
+    height:320px;
+    background:#EFE4CC;
     display:flex;
-    gap:14px;
+    align-items:center;
+    justify-content:center;
+  }
+  .lightbox-imgwrap img{
+    max-width:100%;
+    max-height:100%;
+    object-fit:contain;
   }
 
-  .result-hit img{
-    width:96px;
-    aspect-ratio:63/88;
-    object-fit:cover;
-    border-radius:8px;
-    border:1px solid var(--case-line);
-    background:#fff;
+  .lightbox-info{
+    padding:14px 16px 18px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
   }
 
-  .result-meta h3{
+  .lightbox-info h3{
     margin:0 0 4px;
     font-size:1rem;
   }
 
-  .result-meta .file-tag{
+  .lightbox-info .file-tag{
     font-family:var(--font-mono);
-    font-size:0.68rem;
+    font-size:0.66rem;
     color:#7A6F55;
     word-break:break-all;
-  }
-
-  .result-list-note{
-    margin-top:10px;
-    font-size:0.72rem;
-    color:#7A6F55;
   }
 
   .toast{
     position:fixed;
     left:50%;
-    bottom:22px;
+    bottom:96px;
     transform:translate(-50%, 12px);
-    background:#2A2C34;
-    border:1px solid #3A3D48;
+    background:#241B42;
+    border:1px solid rgba(255,255,255,0.18);
     color:var(--text-hi);
     padding:11px 16px;
     border-radius:var(--radius-sm);
@@ -437,10 +550,7 @@
     transition:opacity 0.2s ease, transform 0.2s ease;
     z-index:50;
   }
-  .toast.show{
-    opacity:1;
-    transform:translate(-50%, 0);
-  }
+  .toast.show{ opacity:1; transform:translate(-50%, 0); }
   .toast.error{ border-color:var(--danger); }
 </style>
 </head>
@@ -450,7 +560,7 @@
 
   <header class="topbar">
     <h1>Vitrina</h1>
-    <span class="tag">escáner de cartas · v1</span>
+    <span class="tag">cartas · v2</span>
   </header>
 
   <div class="drive-strip">
@@ -461,40 +571,79 @@
     <button class="btn-ghost" id="btnConnectDrive" type="button">Conectar con Google Drive</button>
   </div>
 
-  <div class="scanner" id="scannerBox">
-    <video id="video" autoplay playsinline muted></video>
-    <div class="no-camera" id="noCameraMsg" style="display:none;">
-      No se pudo acceder a la cámara. Revisa los permisos del navegador
-      y que la página se sirva por http://localhost o https.
+  <!-- ══════════════════ VISTA DE INICIO ══════════════════ -->
+  <div id="homeView">
+    <div class="search-home">
+      <label for="searchInput">Buscar cartas guardadas</label>
+      <input type="text" id="searchInput" placeholder="Escribe un nombre, ej: Pikachu...">
     </div>
-    <div class="card-guide">
-      <span class="hint">nombre aquí ↑</span>
-    </div>
-    <div class="scan-flash" id="scanFlash"></div>
-  </div>
 
-  <div class="controls">
-    <button class="btn-icon" id="btnToggleCam" type="button" title="Cambiar cámara">⟲</button>
-    <button class="btn-scan" id="btnScan" type="button">
-      <span>Escanear carta</span>
-    </button>
-  </div>
-
-  <div class="progress-line" id="ocrProgress"><div class="bar"></div></div>
-  <div class="stage-label" id="stageLabel"></div>
-
-  <div class="search-block">
-    <label for="searchInput">Nombre detectado (editable)</label>
-    <div class="search-row">
-      <input type="text" id="searchInput" placeholder="Ej: Pikachu, Charizard...">
-      <button class="btn-search" id="btnSearch" type="button">Buscar</button>
+    <div id="homeResults">
+      <div class="home-hint" id="homeHint">Escribe arriba para ver las cartas guardadas que coincidan.</div>
     </div>
   </div>
 
-  <div class="result" id="resultBox">
-    <!-- contenido inyectado por JS -->
+  <button class="btn-fab" id="btnOpenScan" type="button">📷 Escanear carta</button>
+
+  <!-- ══════════════════ VISTA DE ESCANEO ══════════════════ -->
+  <div id="scanView">
+    <div class="scan-header">
+      <h2>Escanear y guardar</h2>
+      <button class="btn-ghost" id="btnCloseScan" type="button">← Volver</button>
+    </div>
+
+    <div class="mode-toggle" id="modeToggle">
+      <button class="mode-btn active" id="modeCamBtn" type="button">📷 Cámara</button>
+      <button class="mode-btn" id="modeFileBtn" type="button">🖼️ Imagen del computador</button>
+    </div>
+
+    <div class="scanner" id="scannerBox">
+      <video id="video" autoplay playsinline muted></video>
+      <img id="staticImg" alt="Imagen cargada para escanear" style="display:none;">
+      <div class="no-camera" id="noCameraMsg" style="display:none;">
+        No se pudo acceder a la cámara. Revisa los permisos del navegador
+        y que la página se sirva por http://localhost o https.
+      </div>
+      <div class="no-file-msg" id="noFileMsg">
+        Elige una imagen de una carta desde tu computador (foto o escaneo) para leerla.
+      </div>
+      <div class="card-guide" id="cardGuide">
+        <span class="hint">nombre aquí ↑</span>
+      </div>
+      <div class="scan-flash" id="scanFlash"></div>
+    </div>
+
+    <div class="controls" id="scanControls">
+      <button class="btn-icon" id="btnToggleCam" type="button" title="Cambiar cámara">⟲</button>
+      <button class="btn-icon" id="btnPickFile" type="button" title="Elegir imagen" style="display:none;">📁</button>
+      <button class="btn-scan" id="btnScan" type="button">
+        <span>Escanear y guardar</span>
+      </button>
+    </div>
+    <input type="file" id="fileInput" accept="image/*" style="display:none;">
+
+    <div class="progress-line" id="ocrProgress"><div class="bar"></div></div>
+    <div class="stage-label" id="stageLabel"></div>
+
+    <div class="saved-log" id="savedLog"></div>
   </div>
 
+</div>
+
+<!-- Lightbox: carta ampliada al tocar una miniatura del inicio -->
+<div class="lightbox" id="lightbox">
+  <div class="lightbox-card">
+    <div class="lightbox-imgwrap">
+      <img id="lightboxImg" alt="">
+    </div>
+    <div class="lightbox-info">
+      <div>
+        <h3 id="lightboxName"></h3>
+        <div class="file-tag" id="lightboxFile"></div>
+      </div>
+      <button class="btn-icon" id="btnCloseLightbox" type="button" title="Cerrar">✕</button>
+    </div>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -502,8 +651,10 @@
 <canvas id="captureCanvas" style="display:none;"></canvas>
 <canvas id="cropCanvas" style="display:none;"></canvas>
 
-<!-- Tesseract.js: OCR 100% en el navegador, ninguna imagen sale del cliente -->
+<!-- Tesseract.js: OCR 100% en el navegador -->
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.0.4/dist/tesseract.min.js"></script>
+<!-- jsPDF: para generar el PDF de una página cuando resulta más liviano que la foto -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <!-- Google Identity Services: flujo OAuth 2.0 sin exponer claves secretas -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 
@@ -514,23 +665,46 @@
   /* ════════════════════════════════════════════════════════════════
      CONFIGURACIÓN — reemplaza estos dos valores con los tuyos
      ════════════════════════════════════════════════════════════════ */
-  const CLIENT_ID = "TU_CLIENT_ID_DE_GOOGLE.apps.googleusercontent.com";
-  const FOLDER_ID = "TU_FOLDER_ID_DE_DRIVE";
-  const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.readonly";
+  const CLIENT_ID = "199654984766-abd6dhkbeefpteaeq4safv34866cjc05.apps.googleusercontent.com";
+  const FOLDER_ID = "1WKxTaQ6oOfqnR3NNC_b0pmgZY9dJvCQ9";
+  // Scope completo: hace falta para poder GUARDAR archivos nuevos dentro
+  // de una carpeta que ya existía antes de esta app (ver comentario arriba).
+  const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive";
   /* ════════════════════════════════════════════════════════════════ */
 
   // ── Referencias DOM ────────────────────────────────────────────────
+  const homeView       = document.getElementById("homeView");
+  const scanView       = document.getElementById("scanView");
+  const btnOpenScan    = document.getElementById("btnOpenScan");
+  const btnCloseScan   = document.getElementById("btnCloseScan");
+
+  const searchInput    = document.getElementById("searchInput");
+  const homeResults    = document.getElementById("homeResults");
+
+  const lightbox        = document.getElementById("lightbox");
+  const lightboxImg     = document.getElementById("lightboxImg");
+  const lightboxName    = document.getElementById("lightboxName");
+  const lightboxFile    = document.getElementById("lightboxFile");
+  const btnCloseLightbox= document.getElementById("btnCloseLightbox");
+
   const video          = document.getElementById("video");
+  const staticImg      = document.getElementById("staticImg");
   const noCameraMsg    = document.getElementById("noCameraMsg");
+  const noFileMsg      = document.getElementById("noFileMsg");
   const scannerBox     = document.getElementById("scannerBox");
+  const modeToggle     = document.getElementById("modeToggle");
+  const scanControls   = document.getElementById("scanControls");
   const scanFlash      = document.getElementById("scanFlash");
   const btnScan        = document.getElementById("btnScan");
   const btnToggleCam   = document.getElementById("btnToggleCam");
+  const btnPickFile    = document.getElementById("btnPickFile");
+  const fileInput      = document.getElementById("fileInput");
+  const modeCamBtn     = document.getElementById("modeCamBtn");
+  const modeFileBtn    = document.getElementById("modeFileBtn");
   const ocrProgress    = document.getElementById("ocrProgress");
   const stageLabel     = document.getElementById("stageLabel");
-  const searchInput    = document.getElementById("searchInput");
-  const btnSearch      = document.getElementById("btnSearch");
-  const resultBox      = document.getElementById("resultBox");
+  const savedLog       = document.getElementById("savedLog");
+
   const btnConnectDrive= document.getElementById("btnConnectDrive");
   const driveDot       = document.getElementById("driveDot");
   const driveStatusText= document.getElementById("driveStatusText");
@@ -541,8 +715,13 @@
   // ── Estado ──────────────────────────────────────────────────────────
   let currentStream = null;
   let facingMode = "environment"; // "environment" = trasera, "user" = frontal
+  let currentMode = "camera"; // "camera" | "file"
+  let fileImageLoaded = false;
+  let currentFileUrl = null;
   let tokenClient = null;
   let accessToken = null;
+  let searchDebounceTimer = null;
+  let searchRequestId = 0; // para ignorar respuestas de búsquedas viejas
 
   // ── Utilidades de UI ─────────────────────────────────────────────────
   function showToast(msg, isError = false){
@@ -553,16 +732,91 @@
     showToast._t = setTimeout(() => toast.classList.remove("show"), 3200);
   }
 
-  function setStage(text){
-    stageLabel.textContent = text || "";
-  }
+  function setStage(text){ stageLabel.textContent = text || ""; }
 
   function setLoading(on, label){
     ocrProgress.classList.toggle("active", on);
     setStage(on ? (label || "") : "");
     btnScan.disabled = on;
-    btnSearch.disabled = on;
   }
+
+  function escapeHtml(str){
+    const div = document.createElement("div");
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  // ── Navegación entre la vista de inicio y la de escaneo ─────────────
+  function openScanView(){
+    homeView.style.display = "none";
+    document.getElementById("btnOpenScan").style.display = "none";
+    scanView.style.display = "block";
+    setMode(currentMode);
+  }
+
+  function closeScanView(){
+    if (currentStream){
+      currentStream.getTracks().forEach(t => t.stop());
+      currentStream = null;
+    }
+    scanView.style.display = "none";
+    homeView.style.display = "block";
+    document.getElementById("btnOpenScan").style.display = "flex";
+    // si había una búsqueda activa, la refrescamos por si se guardó una carta nueva
+    if (searchInput.value.trim()) runHomeSearch(searchInput.value.trim());
+  }
+
+  btnOpenScan.addEventListener("click", openScanView);
+  btnCloseScan.addEventListener("click", closeScanView);
+
+  // ── Selección de fuente: cámara o archivo ────────────────────────────
+  function setMode(mode){
+    currentMode = mode;
+    modeCamBtn.classList.toggle("active", mode === "camera");
+    modeFileBtn.classList.toggle("active", mode === "file");
+
+    if (mode === "camera"){
+      btnToggleCam.style.display = "flex";
+      btnPickFile.style.display = "none";
+      staticImg.style.display = "none";
+      noFileMsg.style.display = "none";
+      startCamera();
+    } else {
+      if (currentStream){
+        currentStream.getTracks().forEach(t => t.stop());
+        currentStream = null;
+      }
+      video.style.display = "none";
+      noCameraMsg.style.display = "none";
+      btnToggleCam.style.display = "none";
+      btnPickFile.style.display = "flex";
+      if (fileImageLoaded){
+        staticImg.style.display = "block";
+        noFileMsg.style.display = "none";
+      }else{
+        staticImg.style.display = "none";
+        noFileMsg.style.display = "flex";
+      }
+    }
+  }
+
+  modeCamBtn.addEventListener("click", () => { if (currentMode !== "camera") setMode("camera"); });
+  modeFileBtn.addEventListener("click", () => { if (currentMode !== "file") setMode("file"); });
+  btnPickFile.addEventListener("click", () => fileInput.click());
+
+  fileInput.addEventListener("change", () => {
+    const file = fileInput.files && fileInput.files[0];
+    if (!file) return;
+    if (currentFileUrl) URL.revokeObjectURL(currentFileUrl);
+    currentFileUrl = URL.createObjectURL(file);
+    staticImg.src = currentFileUrl;
+    staticImg.onload = () => {
+      fileImageLoaded = true;
+      staticImg.style.display = "block";
+      noFileMsg.style.display = "none";
+      showToast("Imagen cargada. Encuadra el nombre y presiona Escanear.");
+    };
+  });
 
   // ── Cámara ────────────────────────────────────────────────────────
   async function startCamera(){
@@ -591,49 +845,61 @@
     startCamera();
   });
 
-  // ── Captura + recorte de la zona del nombre ─────────────────────────
-  // Se toma el fotograma completo y se recorta solo la franja superior
-  // del recuadro guía (donde normalmente va el nombre del Pokémon), para
-  // que Tesseract no se distraiga con el arte de la carta ni los textos
-  // de ataques/reglas.
-  function captureCroppedFrame(){
-    const vw = video.videoWidth;
-    const vh = video.videoHeight;
-    if (!vw || !vh) return null;
+  // ── Captura del recuadro (zona del nombre, para OCR) ────────────────
+  // Misma lógica para cámara o imagen cargada, porque ambas se muestran
+  // con object-fit: cover dentro del mismo recuadro 3:4.
+  function getActiveSource(){
+    if (currentMode === "camera"){
+      return { el: video, w: video.videoWidth, h: video.videoHeight, mirror: facingMode === "user" };
+    }
+    if (!fileImageLoaded) return null;
+    return { el: staticImg, w: staticImg.naturalWidth, h: staticImg.naturalHeight, mirror: false };
+  }
 
-    captureCanvas.width = vw;
-    captureCanvas.height = vh;
+  // Dibuja la fuente activa completa en captureCanvas y devuelve sus
+  // dimensiones, para reusar tanto en el recorte de OCR como al guardar
+  // la foto completa.
+  function drawActiveFrame(){
+    const src = getActiveSource();
+    if (!src || !src.w || !src.h) return null;
+
+    captureCanvas.width = src.w;
+    captureCanvas.height = src.h;
     const ctx = captureCanvas.getContext("2d");
-    if (facingMode === "user"){
-      ctx.translate(vw, 0);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    if (src.mirror){
+      ctx.translate(src.w, 0);
       ctx.scale(-1, 1);
     }
-    ctx.drawImage(video, 0, 0, vw, vh);
+    ctx.drawImage(src.el, 0, 0, src.w, src.h);
+    return { w: src.w, h: src.h };
+  }
 
-    // Estas proporciones deben calzar con el CSS de .card-guide y su ::before
+  function guideRectFor(w, h){
     const guideWidthRatio  = 0.72;
-    const guideHeightRatio = guideWidthRatio * (88 / 63) * (vw / vh);
-    const guideW = vw * guideWidthRatio;
-    const guideH = vh * Math.min(guideHeightRatio, 1);
-    const guideX = (vw - guideW) / 2;
-    const guideY = (vh - guideH) / 2;
+    const guideHeightRatio = guideWidthRatio * (88 / 63) * (w / h);
+    const guideW = w * guideWidthRatio;
+    const guideH = h * Math.min(guideHeightRatio, 1);
+    return { x: (w - guideW) / 2, y: (h - guideH) / 2, w: guideW, h: guideH };
+  }
 
-    const nameX = guideX + guideW * 0.08;
-    const nameY = guideY + guideH * 0.06;
-    const nameW = guideW * 0.84;
-    const nameH = guideH * 0.20;
+  // Recorta solo la franja superior del recuadro (donde va el nombre)
+  // para que Tesseract no se distraiga con el arte ni el texto de reglas.
+  function cropNameRegionDataUrl(w, h){
+    const guide = guideRectFor(w, h);
+    const nameX = guide.x + guide.w * 0.06;
+    const nameY = Math.max(0, guide.y - guide.h * 0.02);
+    const nameW = guide.w * 0.88;
+    const nameH = guide.h * 0.30;
 
     cropCanvas.width = nameW;
     cropCanvas.height = nameH;
     const cctx = cropCanvas.getContext("2d");
     cctx.drawImage(captureCanvas, nameX, nameY, nameW, nameH, 0, 0, nameW, nameH);
-
     return cropCanvas.toDataURL("image/png");
   }
 
   // ── Limpieza del texto OCR ───────────────────────────────────────────
-  // Quita saltos de línea, símbolos raros y valores de HP típicos de una
-  // carta ("HP90", "90 HP", "PS 90"), dejando solo el nombre.
   function cleanOcrText(raw){
     if (!raw) return "";
     let t = raw.replace(/\r?\n/g, " ");
@@ -641,42 +907,154 @@
     t = t.replace(/\b\d{1,3}\s*(HP|PS)\b/gi, " ");
     t = t.replace(/[^a-zA-ZÀ-ÿ0-9\s'.-]/g, " ");
     t = t.replace(/\s+/g, " ").trim();
-    // Nos quedamos con las primeras 3 palabras: el nombre rara vez es más largo
     t = t.split(" ").slice(0, 3).join(" ");
     return t;
   }
 
+  // Nombre de archivo seguro: sin caracteres que Drive/otros SO rechacen
+  function toSafeFileName(name){
+    return name.replace(/[\\/:*?"<>|]/g, "").trim() || "carta-sin-nombre";
+  }
+
+  // ── Generar la foto (JPEG) y el PDF de una carta capturada ──────────
+  function frameToJpegBlob(quality = 0.85){
+    return new Promise(resolve => {
+      captureCanvas.toBlob(blob => resolve(blob), "image/jpeg", quality);
+    });
+  }
+
+  async function jpegBlobToPdfBlob(jpegBlob, pixelW, pixelH){
+    const { jsPDF } = window.jspdf;
+    // Tamaño de página en puntos, calculado a 96 dpi a partir del píxel real
+    const ptW = pixelW * 72 / 96;
+    const ptH = pixelH * 72 / 96;
+    const doc = new jsPDF({
+      orientation: ptW > ptH ? "landscape" : "portrait",
+      unit: "pt",
+      format: [ptW, ptH]
+    });
+    const dataUrl = await new Promise(resolve => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.readAsDataURL(jpegBlob);
+    });
+    doc.addImage(dataUrl, "JPEG", 0, 0, ptW, ptH);
+    return doc.output("blob");
+  }
+
+  // Genera ambos formatos y devuelve el más liviano de los dos.
+  async function buildLightestFile(pixelW, pixelH){
+    const jpegBlob = await frameToJpegBlob(0.85);
+    const pdfBlob = await jpegBlobToPdfBlob(jpegBlob, pixelW, pixelH);
+
+    if (pdfBlob.size < jpegBlob.size){
+      return { blob: pdfBlob, ext: "pdf", mimeType: "application/pdf" };
+    }
+    return { blob: jpegBlob, ext: "jpg", mimeType: "image/jpeg" };
+  }
+
+  // ── Subida a Google Drive (multipart) ───────────────────────────────
+  async function uploadToDrive(blob, filename, mimeType){
+    const metadata = { name: filename, parents: [FOLDER_ID], mimeType };
+    const boundary = "vitrina-" + Math.random().toString(16).slice(2);
+
+    const bodyParts = [
+      `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n`,
+      `--${boundary}\r\nContent-Type: ${mimeType}\r\n\r\n`,
+      blob,
+      `\r\n--${boundary}--`
+    ];
+    const multipartBody = new Blob(bodyParts);
+
+    const resp = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,size", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": `multipart/related; boundary=${boundary}`
+      },
+      body: multipartBody
+    });
+
+    if (resp.status === 401){
+      accessToken = null;
+      driveDot.classList.remove("connected");
+      driveStatusText.textContent = "Drive no conectado";
+      throw new Error("SESSION_EXPIRED");
+    }
+    if (!resp.ok){
+      throw new Error(`Drive respondió ${resp.status}`);
+    }
+    return resp.json();
+  }
+
+  function addSavedLogEntry(name, sizeBytes){
+    const kb = (sizeBytes / 1024).toFixed(0);
+    const row = document.createElement("div");
+    row.className = "saved-log-item";
+    row.innerHTML = `<span class="check">✓</span> Guardada: ${escapeHtml(name)} <span class="meta">${kb} KB</span>`;
+    savedLog.prepend(row);
+  }
+
+  // ── Flujo principal: escanear (OCR) + guardar automático en Drive ───
   async function runOcr(dataUrl){
     setLoading(true, "Leyendo el nombre de la carta…");
     try{
-      const { data } = await Tesseract.recognize(dataUrl, "spa+eng", {
-        logger: () => {} // silencioso; el loader de la UI ya informa el progreso
-      });
-      const clean = cleanOcrText(data.text);
-      if (clean){
-        searchInput.value = clean;
-        showToast(`Detectado: "${clean}"`);
-      }else{
-        showToast("No se detectó texto legible. Puedes escribirlo a mano.", true);
-      }
+      const { data } = await Tesseract.recognize(dataUrl, "spa+eng", { logger: () => {} });
+      return cleanOcrText(data.text);
     }catch(err){
       console.error("Error de OCR:", err);
       showToast("Ocurrió un error leyendo la carta.", true);
+      return "";
     }finally{
       setLoading(false);
     }
   }
 
-  btnScan.addEventListener("click", () => {
-    const dataUrl = captureCroppedFrame();
-    if (!dataUrl){
-      showToast("La cámara aún no está lista.", true);
+  btnScan.addEventListener("click", async () => {
+    if (!accessToken){
+      showToast("Primero conecta tu cuenta de Google Drive.", true);
       return;
     }
+    const dims = drawActiveFrame();
+    if (!dims){
+      showToast(
+        currentMode === "camera"
+          ? "La cámara aún no está lista."
+          : "Primero elige una imagen desde tu computador.",
+        true
+      );
+      return;
+    }
+
     scanFlash.classList.remove("fire");
-    void scanFlash.offsetWidth; // reinicia la animación
+    void scanFlash.offsetWidth;
     scanFlash.classList.add("fire");
-    runOcr(dataUrl);
+
+    const nameDataUrl = cropNameRegionDataUrl(dims.w, dims.h);
+    const detectedName = await runOcr(nameDataUrl);
+
+    if (!detectedName){
+      showToast("No se detectó un nombre legible, intenta de nuevo.", true);
+      return;
+    }
+
+    setLoading(true, "Preparando y guardando en Drive…");
+    try{
+      const { blob, ext, mimeType } = await buildLightestFile(dims.w, dims.h);
+      const filename = `${toSafeFileName(detectedName)}.${ext}`;
+      const uploaded = await uploadToDrive(blob, filename, mimeType);
+      addSavedLogEntry(uploaded.name || filename, blob.size);
+      showToast(`Guardado: ${uploaded.name || filename}`);
+    }catch(err){
+      console.error("Error guardando en Drive:", err);
+      if (err.message === "SESSION_EXPIRED"){
+        showToast("La sesión de Drive expiró, vuelve a conectar.", true);
+      }else{
+        showToast("Ocurrió un error guardando la carta en Drive.", true);
+      }
+    }finally{
+      setLoading(false);
+    }
   });
 
   // ── Google Identity Services / OAuth ─────────────────────────────────
@@ -714,119 +1092,128 @@
     }
   });
 
-  // ── Búsqueda en Drive ────────────────────────────────────────────────
-  function renderResultEmpty(query){
-    resultBox.classList.add("active");
-    resultBox.innerHTML = `
-      <div class="result-empty">
-        No se encontró ninguna carta que coincida con "<strong>${escapeHtml(query)}</strong>"
-        en la carpeta configurada.
+  // ── Búsqueda en Drive (lectura, usada por el inicio y el lightbox) ──
+  function buildDriveQuery(query){
+    const safeWords = query
+      .split(/\s+/)
+      .filter(w => w.length >= 1)
+      .map(w => w.replace(/'/g, "\\'"));
+
+    const wordsToUse = safeWords.length > 0 ? safeWords : [query.replace(/'/g, "\\'")];
+    const nameClauses = wordsToUse.map(w => `name contains '${w}'`).join(" or ");
+
+    return `'${FOLDER_ID}' in parents and mimeType contains 'image/' and (${nameClauses}) and trashed = false`;
+  }
+
+  async function fetchFileList(query){
+    const q = buildDriveQuery(query);
+    const params = new URLSearchParams({
+      q, fields: "files(id,name,mimeType)", pageSize: "18", spaces: "drive"
+    });
+    const resp = await fetch(`https://www.googleapis.com/drive/v3/files?${params.toString()}`, {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+    if (resp.status === 401){
+      accessToken = null;
+      driveDot.classList.remove("connected");
+      driveStatusText.textContent = "Drive no conectado";
+      return null;
+    }
+    if (!resp.ok) throw new Error(`Drive respondió ${resp.status}`);
+    const data = await resp.json();
+    return data.files || [];
+  }
+
+  async function downloadAsBlobUrl(fileId){
+    const resp = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+    if (!resp.ok) throw new Error(`No se pudo descargar el archivo (${resp.status})`);
+    const blob = await resp.blob();
+    return URL.createObjectURL(blob);
+  }
+
+  // ── Búsqueda en vivo del inicio (cada letra dispara una búsqueda) ───
+  let homeHits = []; // [{ file, blobUrl }]
+
+  function renderHomeGrid(){
+    if (homeHits.length === 0){
+      homeResults.innerHTML = `<div class="home-hint">No se encontró ninguna carta guardada con ese nombre.</div>`;
+      return;
+    }
+    homeResults.innerHTML = `
+      <div class="home-grid">
+        ${homeHits.map((hit, i) => `
+          <button class="home-card" data-index="${i}" type="button">
+            <img src="${hit.blobUrl}" alt="${escapeHtml(hit.file.name)}">
+            <span class="home-card-name">${escapeHtml(hit.file.name)}</span>
+          </button>
+        `).join("")}
       </div>`;
+
+    homeResults.querySelectorAll(".home-card").forEach(btn => {
+      btn.addEventListener("click", () => openLightbox(homeHits[Number(btn.dataset.index)]));
+    });
   }
 
-  function renderResultHit(file, blobUrl, extraCount){
-    resultBox.classList.add("active");
-    resultBox.innerHTML = `
-      <div class="result-hit">
-        <img src="${blobUrl}" alt="Carta encontrada: ${escapeHtml(file.name)}">
-        <div class="result-meta">
-          <h3>${escapeHtml(file.name)}</h3>
-          <div class="file-tag">ID: ${escapeHtml(file.id)}</div>
-        </div>
-      </div>
-      ${extraCount > 0 ? `<div class="result-list-note">+ ${extraCount} coincidencia(s) adicional(es) en la carpeta.</div>` : ""}
-    `;
-  }
-
-  function escapeHtml(str){
-    const div = document.createElement("div");
-    div.textContent = str;
-    return div.innerHTML;
-  }
-
-  async function searchInDrive(query){
+  async function runHomeSearch(query){
     if (!accessToken){
-      showToast("Primero conecta tu cuenta de Google Drive.", true);
+      homeResults.innerHTML = `<div class="home-hint">Conecta Google Drive arriba para poder buscar tus cartas guardadas.</div>`;
       return;
     }
-    if (!query){
-      showToast("Escribe o escanea un nombre antes de buscar.", true);
-      return;
-    }
-    if (FOLDER_ID.startsWith("TU_")){
-      showToast("Falta configurar FOLDER_ID en el script.", true);
-      return;
-    }
-
-    setLoading(true, "Buscando en Google Drive…");
-    resultBox.classList.remove("active");
+    const myRequestId = ++searchRequestId;
+    homeResults.innerHTML = `<div class="home-hint">Buscando…</div>`;
 
     try{
-      // Comillas simples escapadas: Drive usa \' dentro del literal de búsqueda
-      const safeQuery = query.replace(/'/g, "\\'");
-      const q = `'${FOLDER_ID}' in parents and mimeType contains 'image/' and name contains '${safeQuery}' and trashed = false`;
-
-      const params = new URLSearchParams({
-        q,
-        fields: "files(id,name,mimeType)",
-        pageSize: "10",
-        spaces: "drive"
-      });
-
-      const listResp = await fetch(`https://www.googleapis.com/drive/v3/files?${params.toString()}`, {
-        headers: { Authorization: `Bearer ${accessToken}` }
-      });
-
-      if (listResp.status === 401){
-        // token expirado: se pide uno nuevo y se reintenta una vez
-        accessToken = null;
-        driveDot.classList.remove("connected");
-        driveStatusText.textContent = "Drive no conectado";
-        showToast("La sesión de Drive expiró, vuelve a conectar.", true);
+      const files = await fetchFileList(query);
+      if (myRequestId !== searchRequestId) return; // llegó una búsqueda más nueva mientras tanto
+      if (files === null){
+        homeResults.innerHTML = `<div class="home-hint">La sesión de Drive expiró, vuelve a conectar.</div>`;
         return;
       }
-      if (!listResp.ok){
-        throw new Error(`Drive respondió ${listResp.status}`);
-      }
-
-      const listData = await listResp.json();
-      const files = listData.files || [];
-
       if (files.length === 0){
-        renderResultEmpty(query);
+        homeHits = [];
+        renderHomeGrid();
         return;
       }
-
-      // Descarga el binario de la primera coincidencia como blob autenticado,
-      // sin exponer un enlace público del archivo.
-      setStage("Descargando imagen desde Drive…");
-      const first = files[0];
-      const fileResp = await fetch(
-        `https://www.googleapis.com/drive/v3/files/${first.id}?alt=media`,
-        { headers: { Authorization: `Bearer ${accessToken}` } }
-      );
-      if (!fileResp.ok){
-        throw new Error(`No se pudo descargar el archivo (${fileResp.status})`);
-      }
-      const blob = await fileResp.blob();
-      const blobUrl = URL.createObjectURL(blob);
-
-      renderResultHit(first, blobUrl, files.length - 1);
+      const blobUrls = await Promise.all(files.map(f => downloadAsBlobUrl(f.id)));
+      if (myRequestId !== searchRequestId) return;
+      homeHits.forEach(hit => URL.revokeObjectURL(hit.blobUrl));
+      homeHits = files.map((file, i) => ({ file, blobUrl: blobUrls[i] }));
+      renderHomeGrid();
     }catch(err){
       console.error("Error buscando en Drive:", err);
-      showToast("Ocurrió un error buscando en Google Drive.", true);
-    }finally{
-      setLoading(false);
+      if (myRequestId === searchRequestId){
+        homeResults.innerHTML = `<div class="home-hint">Ocurrió un error buscando en Drive.</div>`;
+      }
     }
   }
 
-  btnSearch.addEventListener("click", () => searchInDrive(searchInput.value.trim()));
-  searchInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") searchInDrive(searchInput.value.trim());
+  searchInput.addEventListener("input", () => {
+    const query = searchInput.value.trim();
+    clearTimeout(searchDebounceTimer);
+    if (!query){
+      searchRequestId++; // invalida cualquier búsqueda en curso
+      homeResults.innerHTML = `<div class="home-hint">Escribe arriba para ver las cartas guardadas que coincidan.</div>`;
+      return;
+    }
+    searchDebounceTimer = setTimeout(() => runHomeSearch(query), 350);
   });
 
+  // ── Lightbox ─────────────────────────────────────────────────────────
+  function openLightbox(hit){
+    lightboxImg.src = hit.blobUrl;
+    lightboxImg.alt = hit.file.name;
+    lightboxName.textContent = hit.file.name;
+    lightboxFile.textContent = `ID: ${hit.file.id}`;
+    lightbox.classList.add("active");
+  }
+  btnCloseLightbox.addEventListener("click", () => lightbox.classList.remove("active"));
+  lightbox.addEventListener("click", (e) => { if (e.target === lightbox) lightbox.classList.remove("active"); });
+
   // ── Arranque ──────────────────────────────────────────────────────
-  startCamera();
+  // La vista de escaneo empieza oculta; la cámara solo se enciende
+  // cuando el usuario toca "Escanear carta".
 })();
 </script>
 
