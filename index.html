@@ -187,6 +187,110 @@
     margin-bottom:16px;
   }
 
+  .dashboard{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+    margin-bottom:16px;
+  }
+
+  .stat-card{
+    background:var(--panel);
+    border:1px solid rgba(255,255,255,0.12);
+    border-radius:var(--radius-sm);
+    padding:14px 10px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:2px;
+  }
+  #statPokemon{ border-color:rgba(255,92,92,0.35); }
+  #statMagic{ border-color:rgba(63,221,155,0.35); }
+
+  .stat-icon{ font-size:1.1rem; }
+
+  .stat-count{
+    font-family:var(--font-fun);
+    font-size:1.4rem;
+    font-weight:700;
+    color:var(--text-hi);
+  }
+
+  .stat-label{
+    font-family:var(--font-mono);
+    font-size:0.66rem;
+    color:var(--text-lo);
+  }
+
+  .top-value-section{
+    margin-bottom:16px;
+  }
+
+  .section-title{
+    font-family:var(--font-fun);
+    font-size:0.85rem;
+    color:var(--gold);
+    margin-bottom:8px;
+  }
+
+  .top-value-scroll{
+    display:flex;
+    gap:10px;
+    overflow-x:auto;
+    padding-bottom:4px;
+  }
+
+  .top-value-card{
+    flex:0 0 auto;
+    width:88px;
+    background:none;
+    border:none;
+    padding:0;
+    cursor:pointer;
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+    text-align:left;
+  }
+
+  .top-value-card .rank{
+    position:absolute;
+    background:var(--gold);
+    color:#2A1B00;
+    font-family:var(--font-fun);
+    font-weight:700;
+    font-size:0.62rem;
+    padding:1px 5px;
+    border-radius:6px;
+    margin:4px;
+  }
+
+  .top-value-card .thumb-wrap{
+    position:relative;
+  }
+
+  .top-value-card img{
+    width:100%;
+    aspect-ratio:63/88;
+    object-fit:cover;
+    border-radius:8px;
+    border:1px solid rgba(255,255,255,0.14);
+    background:var(--case);
+  }
+
+  .top-value-card .tv-name{
+    font-size:0.66rem;
+    color:var(--text-hi);
+    line-height:1.2;
+    word-break:break-word;
+  }
+
+  .top-value-card .tv-price{
+    font-family:var(--font-mono);
+    font-size:0.62rem;
+    color:var(--teal);
+  }
+
   .search-home label{
     display:block;
     font-family:var(--font-mono);
@@ -663,6 +767,24 @@
 
   <!-- ══════════════════ VISTA DE INICIO ══════════════════ -->
   <div id="homeView">
+    <div class="dashboard">
+      <div class="stat-card" id="statPokemon">
+        <span class="stat-icon">🔴</span>
+        <span class="stat-count" id="statPokemonCount">—</span>
+        <span class="stat-label">Pokémon</span>
+      </div>
+      <div class="stat-card" id="statMagic">
+        <span class="stat-icon">🔷</span>
+        <span class="stat-count" id="statMagicCount">—</span>
+        <span class="stat-label">Magic</span>
+      </div>
+    </div>
+
+    <div class="top-value-section" id="topValueSection" style="display:none;">
+      <div class="section-title">🏆 Top 10 por valor</div>
+      <div class="top-value-scroll" id="topValueScroll"></div>
+    </div>
+
     <div class="search-home">
       <label for="searchInput">Buscar cartas guardadas</label>
       <input type="text" id="searchInput" placeholder="Escribe un nombre, ej: Pikachu...">
@@ -680,6 +802,11 @@
     <div class="scan-header">
       <h2>Escanear y guardar</h2>
       <button class="btn-ghost" id="btnCloseScan" type="button">← Volver</button>
+    </div>
+
+    <div class="mode-toggle" id="gameToggle">
+      <button class="mode-btn active" id="gamePokemonBtn" type="button">🔴 Pokémon</button>
+      <button class="mode-btn" id="gameMagicBtn" type="button">🔷 Magic</button>
     </div>
 
     <div class="mode-toggle" id="modeToggle">
@@ -736,15 +863,7 @@
 
     <div class="lightbox-status" id="lightboxStatus"></div>
 
-    <div class="lightbox-fields" id="lightboxFields" style="display:none;">
-      <div class="saved-field"><label>Nombre</label><input type="text" id="lbFieldNombre"></div>
-      <div class="saved-field"><label>HP</label><input type="text" id="lbFieldHp"></div>
-      <div class="saved-field"><label>Energía</label><input type="text" id="lbFieldEnergia"></div>
-      <div class="saved-field"><label>Número</label><input type="text" id="lbFieldNumero"></div>
-      <div class="saved-field full"><label>Ataque 1</label><input type="text" id="lbFieldAtaque1"></div>
-      <div class="saved-field full"><label>Ataque 2</label><input type="text" id="lbFieldAtaque2"></div>
-      <div class="saved-field full"><label>Valor estimado</label><input type="text" id="lbFieldValor" placeholder="—"></div>
-    </div>
+    <div class="lightbox-fields" id="lightboxFields" style="display:none;"></div>
 
     <div class="lightbox-actions" id="lightboxActions" style="display:none;">
       <button class="btn-ghost" id="btnFetchValue" type="button">🔎 Buscar valor</button>
@@ -776,7 +895,9 @@
   const CLIENT_ID = "199654984766-abd6dhkbeefpteaeq4safv34866cjc05.apps.googleusercontent.com";
   const FOLDER_ID = "1WKxTaQ6oOfqnR3NNC_b0pmgZY9dJvCQ9";
   const SPREADSHEET_ID = "1_3lfushohCVieMP5aLmG4nYJly_op2FvaOetoZTu1P8";
-  const SHEET_NAME = "pokemon"; // nombre de la pestaña dentro de la hoja de cálculo
+  // El nombre de la pestaña de cada juego se define más abajo, en GAMES
+  // (Pokémon usa "pokemon", Magic usa "magic" — crea esa segunda pestaña
+  // en tu misma hoja de cálculo si quieres catalogar cartas de Magic).
   // Scope completo de Drive (para guardar archivos) + Sheets (para
   // escribir los datos de cada carta). Ver comentario arriba.
   const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/spreadsheets";
@@ -790,6 +911,10 @@
 
   const searchInput    = document.getElementById("searchInput");
   const homeResults    = document.getElementById("homeResults");
+  const statPokemonCount = document.getElementById("statPokemonCount");
+  const statMagicCount   = document.getElementById("statMagicCount");
+  const topValueSection  = document.getElementById("topValueSection");
+  const topValueScroll   = document.getElementById("topValueScroll");
 
   const lightbox        = document.getElementById("lightbox");
   const lightboxImg     = document.getElementById("lightboxImg");
@@ -801,13 +926,6 @@
   const lightboxActions = document.getElementById("lightboxActions");
   const btnFetchValue   = document.getElementById("btnFetchValue");
   const btnSaveFields   = document.getElementById("btnSaveFields");
-  const lbFieldNombre   = document.getElementById("lbFieldNombre");
-  const lbFieldHp       = document.getElementById("lbFieldHp");
-  const lbFieldEnergia  = document.getElementById("lbFieldEnergia");
-  const lbFieldNumero   = document.getElementById("lbFieldNumero");
-  const lbFieldAtaque1  = document.getElementById("lbFieldAtaque1");
-  const lbFieldAtaque2  = document.getElementById("lbFieldAtaque2");
-  const lbFieldValor    = document.getElementById("lbFieldValor");
 
   const video          = document.getElementById("video");
   const staticImg      = document.getElementById("staticImg");
@@ -823,6 +941,8 @@
   const fileInput      = document.getElementById("fileInput");
   const modeCamBtn     = document.getElementById("modeCamBtn");
   const modeFileBtn    = document.getElementById("modeFileBtn");
+  const gamePokemonBtn = document.getElementById("gamePokemonBtn");
+  const gameMagicBtn   = document.getElementById("gameMagicBtn");
   const ocrProgress    = document.getElementById("ocrProgress");
   const stageLabel     = document.getElementById("stageLabel");
   const savedLog       = document.getElementById("savedLog");
@@ -887,6 +1007,8 @@
     document.getElementById("btnOpenScan").style.display = "flex";
     // si había una búsqueda activa, la refrescamos por si se guardó una carta nueva
     if (searchInput.value.trim()) runHomeSearch(searchInput.value.trim());
+    refreshDashboardCounts();
+    refreshTopValueCards();
   }
 
   btnOpenScan.addEventListener("click", openScanView);
@@ -925,6 +1047,17 @@
 
   modeCamBtn.addEventListener("click", () => { if (currentMode !== "camera") setMode("camera"); });
   modeFileBtn.addEventListener("click", () => { if (currentMode !== "file") setMode("file"); });
+
+  gamePokemonBtn.addEventListener("click", () => {
+    currentGame = "pokemon";
+    gamePokemonBtn.classList.add("active");
+    gameMagicBtn.classList.remove("active");
+  });
+  gameMagicBtn.addEventListener("click", () => {
+    currentGame = "magic";
+    gameMagicBtn.classList.add("active");
+    gamePokemonBtn.classList.remove("active");
+  });
   btnPickFile.addEventListener("click", () => fileInput.click());
 
   fileInput.addEventListener("change", () => {
@@ -1122,43 +1255,72 @@
     return resp.json();
   }
 
-  // Campos editables mostrados debajo de cada carta guardada. Son solo
-  // para consulta/corrección visual — no se vuelven a subir a Drive.
-  const FIELD_DEFS = [
-    { key: "nombre",  label: "Nombre" },
-    { key: "hp",      label: "HP" },
-    { key: "energia", label: "Energía" },
-    { key: "numero",  label: "Número" },
-    { key: "ataque1", label: "Ataque 1", full: true },
-    { key: "ataque2", label: "Ataque 2", full: true }
-  ];
+  // ── Configuración por juego: cada uno define sus propios campos,
+  // su propia pestaña en la hoja de cálculo, y su propia fuente de precio.
+  const GAMES = {
+    pokemon: {
+      label: "Pokémon",
+      sheetName: "pokemon",
+      // Orden real de columnas en la hoja de ese juego
+      rowSchema: ["fecha", "nombre", "hp", "energia", "numero", "ataque1", "ataque2", "archivo", "fileId", "valor"],
+      headers: ["Fecha", "Nombre", "HP", "Energía", "Número", "Ataque 1", "Ataque 2", "Archivo", "ID de archivo en Drive", "Valor estimado (USD)"],
+      // Campos que se muestran/editan en pantalla (nombre siempre incluido)
+      fieldDefs: [
+        { key: "nombre",  label: "Nombre" },
+        { key: "hp",      label: "HP" },
+        { key: "energia", label: "Energía" },
+        { key: "numero",  label: "Número" },
+        { key: "ataque1", label: "Ataque 1", full: true },
+        { key: "ataque2", label: "Ataque 2", full: true }
+      ]
+    },
+    magic: {
+      label: "Magic",
+      sheetName: "magic",
+      rowSchema: ["fecha", "nombre", "coste", "tipo", "pt", "texto", "archivo", "fileId", "valor"],
+      headers: ["Fecha", "Nombre", "Coste de maná", "Tipo", "Fuerza/Resistencia", "Texto/Habilidad", "Archivo", "ID de archivo en Drive", "Valor estimado (USD)"],
+      fieldDefs: [
+        { key: "nombre", label: "Nombre" },
+        { key: "coste",  label: "Coste de maná" },
+        { key: "pt",     label: "Fuerza/Resist." },
+        { key: "tipo",   label: "Tipo", full: true },
+        { key: "texto",  label: "Texto/Habilidad", full: true }
+      ]
+    }
+  };
 
-  function addSavedLogEntry(name, sizeBytes, fields){
+  let currentGame = "pokemon"; // "pokemon" | "magic" — controlado por el selector de la vista de escaneo
+
+  // Genera el HTML de una grilla de campos editables a partir de una
+  // definición de campos y un objeto de valores. Se usa tanto para el
+  // registro de guardadas como para el lightbox.
+  function fieldsGridHtml(fieldDefs, valuesObj){
+    return fieldDefs.map(def => `
+      <div class="saved-field ${def.full ? "full" : ""}">
+        <label>${def.label}</label>
+        <input type="text" data-field="${def.key}" value="${escapeHtml((valuesObj && valuesObj[def.key]) || "")}" placeholder="—">
+      </div>
+    `).join("");
+  }
+
+  function addSavedLogEntry(name, sizeBytes, fields, game){
     const kb = (sizeBytes / 1024).toFixed(0);
     const row = document.createElement("div");
     row.className = "saved-log-item";
-
-    const fieldsHtml = FIELD_DEFS.map(def => `
-      <div class="saved-field ${def.full ? "full" : ""}">
-        <label>${def.label}</label>
-        <input type="text" value="${escapeHtml(fields[def.key] || "")}" placeholder="—">
-      </div>
-    `).join("");
-
     row.innerHTML = `
       <div class="saved-log-head">
-        <span class="check">✓</span> Guardada: ${escapeHtml(name)}
+        <span class="check">✓</span> Guardada (${escapeHtml(game.label)}): ${escapeHtml(name)}
         <span class="meta">${kb} KB</span>
       </div>
-      <div class="saved-fields">${fieldsHtml}</div>
+      <div class="saved-fields">${fieldsGridHtml(game.fieldDefs, fields)}</div>
     `;
     savedLog.prepend(row);
   }
 
   // Segunda pasada de OCR sobre la carta completa (ya recortada) para
-  // intentar detectar HP, energía, ataques y número/rareza. Es una
-  // extracción best-effort: el OCR de una foto de carta no siempre
-  // acierta con estos campos, por eso quedan editables.
+  // intentar detectar los demás campos según el juego. Es una extracción
+  // best-effort: el OCR de una foto de carta no siempre acierta con estos
+  // campos, por eso quedan editables.
   async function runFullCardOcr(){
     setStage("Leyendo detalles de la carta…");
     try{
@@ -1185,7 +1347,7 @@
     "incoloro":"Incoloro", "colorless":"Incoloro", "normal":"Incoloro"
   };
 
-  function parseCardFields(rawText, fallbackName){
+  function parsePokemonFields(rawText, fallbackName){
     const text = (rawText || "").replace(/\r/g, "");
     const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
 
@@ -1210,17 +1372,54 @@
 
     return {
       nombre: fallbackName || "",
-      hp,
-      energia,
-      numero,
+      hp, energia, numero,
       ataque1: attackLines[0] || "",
       ataque2: attackLines[1] || ""
     };
   }
 
+  const MAGIC_TYPE_KEYWORDS = [
+    "Legendary Creature", "Criatura Legendaria", "Creature", "Criatura",
+    "Instant", "Instantáneo", "Sorcery", "Conjuro", "Artifact", "Artefacto",
+    "Enchantment", "Encantamiento", "Land", "Tierra", "Planeswalker", "Battle", "Batalla"
+  ];
+
+  function parseMagicFields(rawText, fallbackName){
+    const text = (rawText || "").replace(/\r/g, "");
+    const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
+
+    // Tipo: primera línea que contenga alguna de las palabras clave
+    // (normalmente aparece justo debajo del arte, ej. "Legendary Creature — Human Wizard")
+    let tipo = "";
+    outer:
+    for (const line of lines){
+      for (const kw of MAGIC_TYPE_KEYWORDS){
+        if (new RegExp(`\\b${kw}\\b`, "i").test(line)){ tipo = line; break outer; }
+      }
+    }
+
+    // Fuerza/Resistencia: suele ir abajo a la derecha, así que se toma la
+    // última coincidencia de "n/n" (la primera podría ser otra cosa, como
+    // parte de un costo o de una habilidad).
+    let pt = "";
+    const ptMatches = [...text.matchAll(/\b(\d{1,2}\/\d{1,2})\b/g)];
+    if (ptMatches.length) pt = ptMatches[ptMatches.length - 1][1];
+
+    // Coste de maná y texto de habilidad no se intentan detectar por OCR
+    // (los símbolos de maná no se leen de forma confiable) — quedan para
+    // completar a mano.
+    return { nombre: fallbackName || "", coste: "", tipo, pt, texto: "" };
+  }
+
+  function parseCardFieldsForGame(gameKey, rawText, fallbackName){
+    return gameKey === "magic"
+      ? parseMagicFields(rawText, fallbackName)
+      : parsePokemonFields(rawText, fallbackName);
+  }
+
   // ── Guardado de los datos en Google Sheets (una fila por carta) ─────
-  const SHEET_HEADERS = ["Fecha", "Nombre", "HP", "Energía", "Número", "Ataque 1", "Ataque 2", "Archivo", "ID de archivo en Drive", "Valor estimado (USD)"];
-  let sheetHeaderEnsured = false;
+  // Cada juego escribe en su propia pestaña, con sus propias columnas.
+  const sheetHeaderEnsured = { pokemon: false, magic: false };
 
   function sheetsHeaders(){
     return { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" };
@@ -1241,8 +1440,12 @@
     }
   }
 
-  async function sheetHasHeaderRow(){
-    const range = encodeURIComponent(`${SHEET_NAME}!A1`);
+  function lastColumnLetter(game){
+    return String.fromCharCode(64 + game.headers.length);
+  }
+
+  async function sheetHasHeaderRow(game){
+    const range = encodeURIComponent(`${game.sheetName}!A1`);
     const resp = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}`, {
       headers: { Authorization: `Bearer ${accessToken}` }
     });
@@ -1252,37 +1455,41 @@
     return !!(data.values && data.values.length && data.values[0][0]);
   }
 
-  async function writeSheetHeaderRow(){
-    const range = encodeURIComponent(`${SHEET_NAME}!A1:${String.fromCharCode(64 + SHEET_HEADERS.length)}1`);
+  async function writeSheetHeaderRow(game){
+    const range = encodeURIComponent(`${game.sheetName}!A1:${lastColumnLetter(game)}1`);
     const resp = await fetch(
       `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}?valueInputOption=RAW`,
-      { method: "PUT", headers: sheetsHeaders(), body: JSON.stringify({ values: [SHEET_HEADERS] }) }
+      { method: "PUT", headers: sheetsHeaders(), body: JSON.stringify({ values: [game.headers] }) }
     );
     if (resp.status === 401) throw new Error("SESSION_EXPIRED");
     if (!resp.ok) throw new Error(`Sheets ${resp.status}: ${await readSheetsErrorDetail(resp)}`);
   }
 
-  async function ensureSheetHeader(){
-    if (sheetHeaderEnsured) return;
-    const hasHeader = await sheetHasHeaderRow();
-    if (!hasHeader) await writeSheetHeaderRow();
-    sheetHeaderEnsured = true;
+  async function ensureSheetHeader(game){
+    if (sheetHeaderEnsured[game.sheetName]) return;
+    const hasHeader = await sheetHasHeaderRow(game);
+    if (!hasHeader) await writeSheetHeaderRow(game);
+    sheetHeaderEnsured[game.sheetName] = true;
   }
 
-  async function appendCardRowToSheet(fields, filename, fileId){
-    const range = encodeURIComponent(`${SHEET_NAME}!A:${String.fromCharCode(64 + SHEET_HEADERS.length)}`);
-    const row = [
-      new Date().toLocaleString("es-CL"),
-      fields.nombre || "",
-      fields.hp || "",
-      fields.energia || "",
-      fields.numero || "",
-      fields.ataque1 || "",
-      fields.ataque2 || "",
-      filename,
-      fileId,
-      fields.valor || ""
-    ];
+  function buildRowForGame(game, fields, filename, fileId, fechaOverride){
+    return game.rowSchema.map(key => {
+      if (key === "fecha") return fechaOverride || new Date().toLocaleString("es-CL");
+      if (key === "archivo") return filename;
+      if (key === "fileId") return fileId;
+      return (fields && fields[key]) || "";
+    });
+  }
+
+  function rowValuesToFieldsObject(game, rowValues){
+    const obj = {};
+    game.rowSchema.forEach((key, i) => { obj[key] = (rowValues && rowValues[i]) || ""; });
+    return obj;
+  }
+
+  async function appendCardRowToSheet(game, fields, filename, fileId){
+    const range = encodeURIComponent(`${game.sheetName}!A:${lastColumnLetter(game)}`);
+    const row = buildRowForGame(game, fields, filename, fileId);
     const resp = await fetch(
       `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}:append?valueInputOption=USER_ENTERED`,
       { method: "POST", headers: sheetsHeaders(), body: JSON.stringify({ values: [row] }) }
@@ -1292,21 +1499,21 @@
     return resp.json();
   }
 
-  async function saveCardRowToSheet(fields, filename, fileId){
+  async function saveCardRowToSheet(game, fields, filename, fileId){
     if (SPREADSHEET_ID.startsWith("TU_")){
       showToast("Falta configurar SPREADSHEET_ID en el script.", true);
       return;
     }
-    await ensureSheetHeader();
-    await appendCardRowToSheet(fields, filename, fileId);
+    await ensureSheetHeader(game);
+    await appendCardRowToSheet(game, fields, filename, fileId);
   }
 
   // ── Buscar / actualizar la fila de UNA carta puntual (para el lightbox) ─
-  // Trae todas las filas y busca la que tenga este ID de archivo de Drive
-  // en la columna "ID de archivo en Drive" (columna I, índice 8).
-  async function findSheetRowByFileId(fileId){
+  // Busca en la pestaña de un juego la fila que tenga este ID de archivo
+  // de Drive, en la columna "fileId" de su propio rowSchema.
+  async function findSheetRowByFileIdInGame(game, fileId){
     if (SPREADSHEET_ID.startsWith("TU_")) return null;
-    const range = encodeURIComponent(`${SHEET_NAME}!A2:${String.fromCharCode(64 + SHEET_HEADERS.length)}`);
+    const range = encodeURIComponent(`${game.sheetName}!A2:${lastColumnLetter(game)}`);
     const resp = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}`, {
       headers: { Authorization: `Bearer ${accessToken}` }
     });
@@ -1314,14 +1521,163 @@
     if (!resp.ok) throw new Error(`Sheets ${resp.status}: ${await readSheetsErrorDetail(resp)}`);
     const data = await resp.json();
     const rows = data.values || [];
-    const idx = rows.findIndex(r => (r[8] || "") === fileId);
+    const fileIdCol = game.rowSchema.indexOf("fileId");
+    const idx = rows.findIndex(r => (r[fileIdCol] || "") === fileId);
     if (idx === -1) return null;
     // +2 porque A2 es la fila 2 real de la hoja (la 1 es el encabezado)
     return { rowNumber: idx + 2, values: rows[idx] };
   }
 
-  async function updateSheetRow(rowNumber, rowValues){
-    const range = encodeURIComponent(`${SHEET_NAME}!A${rowNumber}:${String.fromCharCode(64 + SHEET_HEADERS.length)}${rowNumber}`);
+  // Prueba en cada juego, en orden, hasta encontrar una fila para este
+  // archivo (una carpeta de Drive puede tener cartas de ambos juegos
+  // mezcladas). Si una pestaña todavía no existe, simplemente se ignora.
+  async function findCardRowAnyGame(fileId){
+    for (const gameKey of Object.keys(GAMES)){
+      const game = GAMES[gameKey];
+      try{
+        const row = await findSheetRowByFileIdInGame(game, fileId);
+        if (row) return { gameKey, game, ...row };
+      }catch(err){
+        if (err.message === "SESSION_EXPIRED") throw err;
+        console.warn(`No se pudo revisar la pestaña "${game.sheetName}":`, err.message);
+      }
+    }
+    return null;
+  }
+
+  // ── Dashboard del inicio: cuántas cartas hay guardadas de cada juego ──
+  // Cuenta las filas con datos en la columna "Fecha" de cada pestaña (sin
+  // contar el encabezado). Si la pestaña todavía no existe (ej. "magic"
+  // antes de guardar la primera carta de ese juego), simplemente da 0.
+  async function countSheetRows(game){
+    const range = encodeURIComponent(`${game.sheetName}!A2:A`);
+    const resp = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}`, {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+    if (resp.status === 401) throw new Error("SESSION_EXPIRED");
+    if (!resp.ok) return 0; // pestaña inexistente u otro problema: se cuenta como 0
+    const data = await resp.json();
+    return (data.values || []).filter(r => r[0]).length;
+  }
+
+  async function refreshDashboardCounts(){
+    if (!accessToken || SPREADSHEET_ID.startsWith("TU_")){
+      statPokemonCount.textContent = "—";
+      statMagicCount.textContent = "—";
+      return;
+    }
+    try{
+      const [pokemonCount, magicCount] = await Promise.all([
+        countSheetRows(GAMES.pokemon),
+        countSheetRows(GAMES.magic)
+      ]);
+      statPokemonCount.textContent = pokemonCount;
+      statMagicCount.textContent = magicCount;
+    }catch(err){
+      console.error("Error actualizando el dashboard:", err);
+      statPokemonCount.textContent = "—";
+      statMagicCount.textContent = "—";
+    }
+  }
+
+  // ── Top 10 por valor: junta las filas de ambas pestañas, saca el monto
+  // numérico del texto de "Valor estimado" (ej. "12.34 USD (TCGplayer...)"
+  // → 12.34) y ordena de mayor a menor. Nota: mezcla USD y EUR sin
+  // convertir, así que el orden es aproximado cuando hay ambas monedas.
+  async function fetchAllRowsRaw(game){
+    const range = encodeURIComponent(`${game.sheetName}!A2:${lastColumnLetter(game)}`);
+    const resp = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}`, {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+    if (resp.status === 401) throw new Error("SESSION_EXPIRED");
+    if (!resp.ok) return [];
+    const data = await resp.json();
+    return data.values || [];
+  }
+
+  function parseAmountFromValorText(valorText){
+    const match = (valorText || "").match(/(\d+(?:[.,]\d+)?)/);
+    if (!match) return null;
+    const amount = parseFloat(match[1].replace(",", "."));
+    return isFinite(amount) ? amount : null;
+  }
+
+  async function fetchTopValueCards(limit = 10){
+    const nombreIdx = {}, fileIdIdx = {}, archivoIdx = {}, valorIdx = {};
+    for (const key of Object.keys(GAMES)){
+      nombreIdx[key] = GAMES[key].rowSchema.indexOf("nombre");
+      fileIdIdx[key] = GAMES[key].rowSchema.indexOf("fileId");
+      archivoIdx[key] = GAMES[key].rowSchema.indexOf("archivo");
+      valorIdx[key] = GAMES[key].rowSchema.indexOf("valor");
+    }
+
+    const entries = [];
+    for (const gameKey of Object.keys(GAMES)){
+      let rows = [];
+      try{ rows = await fetchAllRowsRaw(GAMES[gameKey]); }catch(err){ console.warn(err); }
+      rows.forEach(r => {
+        const amount = parseAmountFromValorText(r[valorIdx[gameKey]]);
+        if (amount === null) return;
+        const fileId = r[fileIdIdx[gameKey]];
+        if (!fileId) return;
+        entries.push({
+          gameKey, amount, fileId,
+          nombre: r[nombreIdx[gameKey]] || "",
+          archivo: r[archivoIdx[gameKey]] || ""
+        });
+      });
+    }
+
+    entries.sort((a, b) => b.amount - a.amount);
+    return entries.slice(0, limit);
+  }
+
+  async function refreshTopValueCards(){
+    if (!accessToken || SPREADSHEET_ID.startsWith("TU_")){
+      topValueSection.style.display = "none";
+      return;
+    }
+    try{
+      const top = await fetchTopValueCards(10);
+      if (top.length === 0){
+        topValueSection.style.display = "none";
+        return;
+      }
+      topValueSection.style.display = "block";
+      topValueScroll.innerHTML = top.map((_, i) => `
+        <button class="top-value-card" data-index="${i}" type="button">
+          <div class="thumb-wrap">
+            <span class="rank">#${i + 1}</span>
+            <img alt="${escapeHtml(top[i].nombre)}" src="">
+          </div>
+          <span class="tv-name">${escapeHtml(top[i].nombre)}</span>
+          <span class="tv-price">${top[i].amount.toFixed(2)}</span>
+        </button>
+      `).join("");
+
+      // Las miniaturas se cargan aparte y se van insertando a medida que
+      // llegan, para no bloquear el resto de la pantalla mientras bajan.
+      topValueScroll.querySelectorAll(".top-value-card").forEach(async (card, i) => {
+        const item = top[i];
+        try{
+          const blobUrl = await downloadAsBlobUrl(item.fileId);
+          card.querySelector("img").src = blobUrl;
+          card.addEventListener("click", () => openLightbox({
+            file: { id: item.fileId, name: item.archivo || item.nombre },
+            blobUrl
+          }));
+        }catch(err){
+          console.warn(`No se pudo cargar la miniatura de ${item.nombre}:`, err);
+        }
+      });
+    }catch(err){
+      console.error("Error cargando el top de valor:", err);
+      topValueSection.style.display = "none";
+    }
+  }
+
+  async function updateSheetRow(game, rowNumber, rowValues){
+    const range = encodeURIComponent(`${game.sheetName}!A${rowNumber}:${lastColumnLetter(game)}${rowNumber}`);
     const resp = await fetch(
       `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}?valueInputOption=USER_ENTERED`,
       { method: "PUT", headers: sheetsHeaders(), body: JSON.stringify({ values: [rowValues] }) }
@@ -1331,17 +1687,14 @@
   }
 
   // ── Buscar un valor estimado (mercado) para el nombre de una carta ──
-  // Usa la API pública y gratuita de pokemontcg.io (sin necesidad de
-  // claves ni backend propio) y toma el primer precio de mercado que
-  // encuentre entre las variantes del resultado más parecido.
-  async function fetchEstimatedValue(cardName){
+  // Pokémon usa la API pública de pokemontcg.io; Magic usa la de Scryfall.
+  // Ambas son gratuitas, públicas y no necesitan clave ni backend propio.
+  async function fetchEstimatedValuePokemon(cardName){
     const query = encodeURIComponent(`name:"${cardName}"`);
     const resp = await fetch(`https://api.pokemontcg.io/v2/cards?q=${query}&pageSize=5`);
     if (!resp.ok) throw new Error(`pokemontcg.io respondió ${resp.status}`);
     const data = await resp.json();
     const cards = data.data || [];
-    if (cards.length === 0) return null;
-
     for (const card of cards){
       const tcg = card.tcgplayer && card.tcgplayer.prices;
       if (tcg){
@@ -1356,6 +1709,22 @@
       }
     }
     return null;
+  }
+
+  async function fetchEstimatedValueMagic(cardName){
+    const resp = await fetch(`https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(cardName)}`);
+    if (resp.status === 404) return null; // Scryfall no encontró nada parecido
+    if (!resp.ok) throw new Error(`Scryfall respondió ${resp.status}`);
+    const card = await resp.json();
+    const usd = card.prices && (card.prices.usd || card.prices.usd_foil);
+    if (!usd) return null;
+    return { amount: parseFloat(usd), currency: "USD", source: "Scryfall", cardLabel: `${card.name} (${card.set_name || ""})` };
+  }
+
+  async function fetchEstimatedValue(cardName, gameKey){
+    return gameKey === "magic"
+      ? fetchEstimatedValueMagic(cardName)
+      : fetchEstimatedValuePokemon(cardName);
   }
 
   // ── Flujo principal: escanear (OCR) + guardar automático en Drive ───
@@ -1403,6 +1772,7 @@
 
     setLoading(true, "Preparando y guardando en Drive…");
     try{
+      const game = GAMES[currentGame];
       const cardDims = cropToCardGuide(dims.w, dims.h);
       const { blob, ext, mimeType } = await buildLightestFile(cardDims.w, cardDims.h);
       const filename = `${toSafeFileName(detectedName)}.${ext}`;
@@ -1410,17 +1780,17 @@
 
       // Segunda pasada de OCR (sobre la carta ya recortada, antes de que
       // el próximo escaneo reutilice el mismo canvas) para completar los
-      // demás campos: HP, energía, ataques, número.
+      // demás campos, según el juego seleccionado.
       const fullText = await runFullCardOcr();
-      const fields = parseCardFields(fullText, detectedName);
+      const fields = parseCardFieldsForGame(currentGame, fullText, detectedName);
 
-      addSavedLogEntry(uploaded.name || filename, blob.size, fields);
+      addSavedLogEntry(uploaded.name || filename, blob.size, fields, game);
       showToast(`Guardado: ${uploaded.name || filename}`);
 
       // La hoja de cálculo es un paso secundario: si falla, la carta ya
       // quedó guardada en Drive de todos modos, solo avisamos aparte.
       try{
-        await saveCardRowToSheet(fields, uploaded.name || filename, uploaded.id);
+        await saveCardRowToSheet(game, fields, uploaded.name || filename, uploaded.id);
       }catch(sheetErr){
         console.error("Error escribiendo en Sheets:", sheetErr);
         if (sheetErr.message === "SESSION_EXPIRED"){
@@ -1461,6 +1831,8 @@
         driveStatusText.textContent = "Drive conectado";
         btnConnectDrive.textContent = "Reconectar";
         showToast("Conectado a Google Drive.");
+        refreshDashboardCounts();
+        refreshTopValueCards();
       }
     });
     return tokenClient;
@@ -1585,22 +1957,27 @@
   });
 
   // ── Lightbox ─────────────────────────────────────────────────────────
-  // Fila de Sheets asociada a la carta que está abierta ahora mismo en el
-  // lightbox (null si esa carta no tiene fila — ej. imágenes que ya
-  // estaban en la carpeta de Drive antes de esta función).
+  // Juego y fila de Sheets asociados a la carta que está abierta ahora
+  // mismo en el lightbox (row = null si esa carta no tiene fila todavía).
+  let lightboxGameKey = "pokemon";
   let lightboxRow = null; // { rowNumber, values } | null
   let lightboxFileId = null;
 
-  function fillLightboxFields(values){
-    // values sigue el orden de SHEET_HEADERS: Fecha,Nombre,HP,Energía,
-    // Número,Ataque1,Ataque2,Archivo,ID de archivo,Valor estimado
-    lbFieldNombre.value  = (values && values[1]) || "";
-    lbFieldHp.value      = (values && values[2]) || "";
-    lbFieldEnergia.value = (values && values[3]) || "";
-    lbFieldNumero.value  = (values && values[4]) || "";
-    lbFieldAtaque1.value = (values && values[5]) || "";
-    lbFieldAtaque2.value = (values && values[6]) || "";
-    lbFieldValor.value   = (values && values[9]) || "";
+  function lightboxFieldDefs(){
+    // "Valor estimado" se agrega siempre al final, sea cual sea el juego
+    return [...GAMES[lightboxGameKey].fieldDefs, { key: "valor", label: "Valor estimado", full: true }];
+  }
+
+  function renderLightboxFields(valuesObj){
+    lightboxFields.innerHTML = fieldsGridHtml(lightboxFieldDefs(), valuesObj || {});
+  }
+
+  function readLightboxFields(){
+    const obj = {};
+    lightboxFields.querySelectorAll("[data-field]").forEach(input => {
+      obj[input.dataset.field] = input.value.trim();
+    });
+    return obj;
   }
 
   async function openLightbox(hit){
@@ -1612,20 +1989,24 @@
 
     lightboxFileId = hit.file.id;
     lightboxRow = null;
+    lightboxGameKey = currentGame; // por defecto, el juego activo en la vista de escaneo
     lightboxFields.style.display = "none";
     lightboxActions.style.display = "none";
-    fillLightboxFields(null);
+    renderLightboxFields(null);
     lightboxStatus.textContent = "Buscando datos guardados de esta carta…";
 
     try{
-      const row = await findSheetRowByFileId(hit.file.id);
+      const found = await findCardRowAnyGame(hit.file.id);
       if (lightboxFileId !== hit.file.id) return; // se cerró/cambió mientras cargaba
-      lightboxRow = row;
-      fillLightboxFields(row ? row.values : null);
-      if (!lbFieldNombre.value) lbFieldNombre.value = hit.file.name.replace(/\.[^.]+$/, "");
-      lightboxStatus.textContent = row
-        ? ""
-        : "Esta carta no tiene datos guardados en la hoja todavía — puedes completarlos y guardarlos.";
+      if (found){
+        lightboxGameKey = found.gameKey;
+        lightboxRow = { rowNumber: found.rowNumber, values: found.values };
+        renderLightboxFields(rowValuesToFieldsObject(found.game, found.values));
+        lightboxStatus.textContent = "";
+      }else{
+        renderLightboxFields({ nombre: hit.file.name.replace(/\.[^.]+$/, "") });
+        lightboxStatus.textContent = `No hay datos guardados en la hoja para esta carta — se completará como "${GAMES[lightboxGameKey].label}" si guardas cambios.`;
+      }
       lightboxFields.style.display = "grid";
       lightboxActions.style.display = "flex";
     }catch(err){
@@ -1640,7 +2021,8 @@
   lightbox.addEventListener("click", (e) => { if (e.target === lightbox) lightbox.classList.remove("active"); });
 
   btnFetchValue.addEventListener("click", async () => {
-    const name = lbFieldNombre.value.trim();
+    const current = readLightboxFields();
+    const name = (current.nombre || "").trim();
     if (!name){
       showToast("Escribe primero el nombre de la carta.", true);
       return;
@@ -1648,11 +2030,12 @@
     btnFetchValue.disabled = true;
     lightboxStatus.textContent = "Buscando un valor de referencia…";
     try{
-      const found = await fetchEstimatedValue(name);
+      const found = await fetchEstimatedValue(name, lightboxGameKey);
       if (!found){
         lightboxStatus.textContent = "No se encontró un valor de referencia para ese nombre.";
       }else{
-        lbFieldValor.value = `${found.amount.toFixed(2)} ${found.currency} (${found.source}, ${found.cardLabel})`;
+        const valorInput = lightboxFields.querySelector('[data-field="valor"]');
+        if (valorInput) valorInput.value = `${found.amount.toFixed(2)} ${found.currency} (${found.source}, ${found.cardLabel})`;
         lightboxStatus.textContent = "Valor de referencia cargado — revísalo y guarda los cambios.";
       }
     }catch(err){
@@ -1668,34 +2051,22 @@
       showToast("Primero conecta tu cuenta de Google Drive.", true);
       return;
     }
-    const filenameForRow = lightboxRow ? lightboxRow.values[7] : lightboxName.textContent;
-    const rowValues = [
-      lightboxRow ? lightboxRow.values[0] : new Date().toLocaleString("es-CL"),
-      lbFieldNombre.value.trim(),
-      lbFieldHp.value.trim(),
-      lbFieldEnergia.value.trim(),
-      lbFieldNumero.value.trim(),
-      lbFieldAtaque1.value.trim(),
-      lbFieldAtaque2.value.trim(),
-      filenameForRow,
-      lightboxFileId,
-      lbFieldValor.value.trim()
-    ];
+    const game = GAMES[lightboxGameKey];
+    const fields = readLightboxFields();
+    const filenameForRow = lightboxRow ? lightboxRow.values[game.rowSchema.indexOf("archivo")] : lightboxName.textContent;
+    const fechaOverride = lightboxRow ? lightboxRow.values[game.rowSchema.indexOf("fecha")] : null;
+    const rowValues = buildRowForGame(game, fields, filenameForRow, lightboxFileId, fechaOverride);
 
     btnSaveFields.disabled = true;
     try{
       if (lightboxRow){
-        await updateSheetRow(lightboxRow.rowNumber, rowValues);
+        await updateSheetRow(game, lightboxRow.rowNumber, rowValues);
       }else{
-        await ensureSheetHeader();
-        await appendCardRowToSheet({
-          nombre: rowValues[1], hp: rowValues[2], energia: rowValues[3],
-          numero: rowValues[4], ataque1: rowValues[5], ataque2: rowValues[6],
-          valor: rowValues[9]
-        }, filenameForRow, lightboxFileId);
+        await ensureSheetHeader(game);
+        await appendCardRowToSheet(game, fields, filenameForRow, lightboxFileId);
         // ahora ya existe una fila para esta carta: la recargamos para
         // poder seguir editándola con "actualizar" en vez de "crear"
-        lightboxRow = await findSheetRowByFileId(lightboxFileId);
+        lightboxRow = await findSheetRowByFileIdInGame(game, lightboxFileId);
       }
       showToast("Datos guardados en la hoja de cálculo.");
       lightboxStatus.textContent = "";
