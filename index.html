@@ -1377,6 +1377,22 @@
     savedLog.prepend(row);
   }
 
+  // ── Worker de Tesseract ──────────────────────────────────────────────
+  // IMPORTANTE: Tesseract.recognize(imagen, idiomas, opciones) IGNORA en
+  // silencio parámetros como tessedit_pageseg_mode o
+  // tessedit_char_whitelist puestos en "opciones" — esos solo se aplican
+  // de verdad llamando worker.setParameters() sobre un worker creado con
+  // createWorker(). Por eso se mantiene un único worker reutilizable
+  // durante toda la sesión, y se le cambian los parámetros antes de cada
+  // uso según lo que se esté leyendo.
+  let ocrWorkerPromise = null;
+  function getOcrWorker(){
+    if (!ocrWorkerPromise){
+      ocrWorkerPromise = Tesseract.createWorker("spa+eng", 1, { logger: () => {} });
+    }
+    return ocrWorkerPromise;
+  }
+
   // Segunda pasada de OCR sobre la carta completa (ya recortada) para
   // intentar detectar los demás campos según el juego. Es una extracción
   // best-effort: el OCR de una foto de carta no siempre acierta con estos
@@ -1384,13 +1400,25 @@
   async function runFullCardOcr(){
     setStage("Leyendo detalles de la carta…");
     try{
+      const worker = await getOcrWorker();
+      await worker.setParameters({
+        tessedit_pageseg_mode: "3", // automático: la carta completa tiene varios bloques de texto
+        tessedit_char_whitelist: "" // sin restricción de caracteres
+      });
       const dataUrl = cardCanvas.toDataURL("image/png");
-      const { data } = await Tesseract.recognize(dataUrl, "spa+eng", { logger: () => {} });
+      const { data } = await worker.recognize(dataUrl);
       return data.text || "";
     }catch(err){
       console.error("Error leyendo detalles de la carta:", err);
       return "";
     }
+  }
+
+  // Primera línea con contenido real de un texto (se usa como segunda
+  // candidata a nombre si el recorte del nombre no dio nada aprovechable).
+  function firstNonEmptyLine(text){
+    const line = (text || "").split("\n").map(l => l.trim()).find(l => l.length >= 2);
+    return line || "";
   }
 
   const ENERGY_KEYWORDS = {
@@ -1871,11 +1899,12 @@
   async function runOcr(dataUrl){
     setLoading(true, "Leyendo el nombre de la carta…");
     try{
-      const { data } = await Tesseract.recognize(dataUrl, "spa+eng", {
-        logger: () => {},
-        tessedit_pageseg_mode: "7",
+      const worker = await getOcrWorker();
+      await worker.setParameters({
+        tessedit_pageseg_mode: "7", // una sola línea de texto
         tessedit_char_whitelist: NAME_OCR_ALPHABET
       });
+      const { data } = await worker.recognize(dataUrl);
       return cleanOcrText(data.text);
     }catch(err){
       console.error("Error de OCR:", err);
@@ -1928,17 +1957,32 @@
     // En vez de leer con OCR cosas como el costo de maná o el texto de
     // reglas (poco confiable), se busca la carta por nombre en la base de
     // datos pública del juego correspondiente. Si se encuentra, hasta el
-    // nombre queda corregido al oficial; si no, se sigue con el nombre
-    // detectado y como respaldo se usa el OCR de la carta completa.
+    // nombre queda corregido al oficial. Si el nombre del recorte no
+    // encuentra nada, se intenta una segunda vez con la primera línea del
+    // OCR de la carta completa (a veces esa lectura sale mejor). Si
+    // ninguna de las dos encuentra la carta, se sigue con el nombre
+    // detectado tal cual y como respaldo se usa el parseo por OCR.
     setLoading(true, "Buscando datos en la base de cartas…");
     let fields = null;
+    let fullText = "";
     try{
       fields = await fetchCardDataForGame(currentGame, detectedName);
     }catch(err){
       console.warn("No se pudo consultar la base de datos de cartas:", err);
     }
     if (!fields){
-      const fullText = await runFullCardOcr();
+      fullText = await runFullCardOcr();
+      const altName = firstNonEmptyLine(fullText);
+      if (altName && altName.toLowerCase() !== detectedName.toLowerCase()){
+        try{
+          fields = await fetchCardDataForGame(currentGame, altName);
+        }catch(err){
+          console.warn("No se pudo consultar la base de datos de cartas (segundo intento):", err);
+        }
+      }
+    }
+    if (!fields){
+      if (!fullText) fullText = await runFullCardOcr();
       fields = parseCardFieldsForGame(currentGame, fullText, detectedName);
     }
     const finalName = fields.nombre || detectedName;
