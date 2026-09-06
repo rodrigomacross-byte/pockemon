@@ -41,16 +41,52 @@
      tocar "Conectar con Google Drive" en esta nueva versión: te va a
      pedir iniciar sesión de nuevo para otorgar el permiso ampliado.
 
-  3) CÓMO PROBARLO EN LOCAL
+  3) IDENTIFICACIÓN CON GEMINI (opcional, pero muy recomendable)
+     Tesseract (OCR tradicional) lee letra por letra sin entender qué
+     está mirando, así que falla seguido con tipografías estilizadas o
+     si la carta no queda perfecto dentro del recuadro. Gemini "ve" la
+     foto completa como una IA multimodal y reconoce el nombre mucho
+     mejor. Si configuras esto, se usa como método principal; si no, la
+     app sigue funcionando con Tesseract como hasta ahora.
+
+     A diferencia del Client ID de OAuth (diseñado para ser público), la
+     clave de la API de Gemini SÍ es secreta — por eso no vive en este
+     archivo. En vez de eso, esta app llama a un pequeño "Worker" de
+     Cloudflare que guarda la clave de forma segura y hace de
+     intermediario: el navegador nunca ve la clave, solo la URL pública
+     del Worker (GEMINI_WORKER_URL, en el bloque "CONFIGURACIÓN").
+
+     Cómo quedó armado (para referencia si necesitas rehacerlo):
+       a. Se creó una API key en https://aistudio.google.com/apikey.
+       b. Se creó un Worker gratuito en Cloudflare (dash.cloudflare.com
+          → Compute → Workers & Pages → "Start with Hello World!").
+       c. La clave se guardó como un "Secret" del Worker (Bindings →
+          Add binding → Secrets Store), nunca como texto plano en el
+          código del Worker.
+       d. El código del Worker (ver worker.js en el proyecto de
+          Cloudflare) recibe la foto, la reenvía a Gemini usando la
+          clave guardada, y solo acepta pedidos que vengan del dominio
+          de esta página (ALLOWED_ORIGIN en ese código).
+       e. La URL pública que Cloudflare asignó al Worker se pegó aquí,
+          en GEMINI_WORKER_URL.
+
+     Si prefieres no usar Gemini, simplemente deja GEMINI_WORKER_URL con
+     su valor por defecto — la app va a detectarlo y usar Tesseract,
+     como en las versiones anteriores.
+
+  4) CÓMO PROBARLO EN LOCAL
      La cámara (getUserMedia) y el login de Google exigen un "contexto
      seguro". localhost cumple ese requisito sin HTTPS:
        Python 3:   python3 -m http.server 8000
        Node:       npx serve -l 8000
      Abre http://localhost:8000 (no lo abras con doble clic / file://).
 
-  4) PRIVACIDAD
-     - El video, la captura de imagen y el OCR (Tesseract.js) se procesan
-       enteramente en el navegador del usuario.
+  5) PRIVACIDAD
+     - El video y la captura de imagen se procesan en el navegador. Si
+       configuraste Gemini, la foto de la carta se envía a tu Worker de
+       Cloudflare, y este a la API de Google para identificarla (no a
+       un servidor propio); si no, todo el reconocimiento de texto
+       (Tesseract.js) es 100% local.
      - El archivo que se sube a Drive (foto o PDF, el que resulte más
        liviano) se genera también en el navegador y se sube directo a la
        API de Drive con tu token — no pasa por ningún servidor propio.
@@ -895,6 +931,12 @@
   const CLIENT_ID = "199654984766-abd6dhkbeefpteaeq4safv34866cjc05.apps.googleusercontent.com";
   const FOLDER_ID = "1WKxTaQ6oOfqnR3NNC_b0pmgZY9dJvCQ9";
   const SPREADSHEET_ID = "1_3lfushohCVieMP5aLmG4nYJly_op2FvaOetoZTu1P8";
+  // URL del Worker de Cloudflare que hace de intermediario con Gemini.
+  // La clave de Gemini vive como secreto dentro de ese Worker — nunca
+  // aparece en este archivo ni en el navegador. Si se deja el valor por
+  // defecto, la app simplemente usa Tesseract. Ver comentario grande al
+  // inicio del archivo, sección "IDENTIFICACIÓN CON GEMINI (opcional)".
+  const GEMINI_WORKER_URL = "https://sparkling-waterfall-b295.rodrigomacross.workers.dev";
   // El nombre de la pestaña de cada juego se define más abajo, en GAMES
   // (Pokémon usa "pokemon", Magic usa "magic" — crea esa segunda pestaña
   // en tu misma hoja de cálculo si quieres catalogar cartas de Magic).
@@ -1377,7 +1419,47 @@
     savedLog.prepend(row);
   }
 
-  // ── Worker de Tesseract ──────────────────────────────────────────────
+  // ── Identificación con Gemini, vía un Worker proxy de Cloudflare ─────
+  // La clave de Gemini NUNCA viaja al navegador: vive como secreto dentro
+  // del Worker (GEMINI_WORKER_URL). El navegador solo le manda la foto al
+  // Worker, y este reenvía el pedido a Gemini usando la clave que tiene
+  // guardada. Si no hay Worker configurado, o si la llamada falla por
+  // cualquier motivo, se devuelve null y quien llama cae de respaldo a
+  // Tesseract.
+  async function identifyCardNameWithGemini(canvas, gameKey){
+    if (GEMINI_WORKER_URL.startsWith("TU_")) return null;
+
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+    const base64 = dataUrl.split(",")[1];
+    const gameLabel = gameKey === "magic" ? "Magic: The Gathering" : "Pokémon";
+    const prompt =
+      `Esta es una foto de una carta de ${gameLabel}. Responde ÚNICAMENTE con un ` +
+      `objeto JSON de la forma {"nombre": "..."} con el nombre exacto de la carta ` +
+      `tal como está impreso en ella. Si no logras identificarla, responde ` +
+      `{"nombre": ""}. No agregues explicaciones ni texto fuera del JSON.`;
+
+    const resp = await fetch(GEMINI_WORKER_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt, imageBase64: base64, mimeType: "image/jpeg" })
+    });
+    if (!resp.ok) throw new Error(`El Worker de Gemini respondió ${resp.status}`);
+
+    const data = await resp.json();
+    const text = data.candidates
+      && data.candidates[0]
+      && data.candidates[0].content
+      && data.candidates[0].content.parts
+      && data.candidates[0].content.parts[0]
+      && data.candidates[0].content.parts[0].text;
+    if (!text) return null;
+
+    const parsed = JSON.parse(text);
+    const nombre = parsed && parsed.nombre ? String(parsed.nombre).trim() : "";
+    return nombre || null;
+  }
+
+  // ── Worker de Tesseract (respaldo si Gemini no está configurado o falla) ─
   // IMPORTANTE: Tesseract.recognize(imagen, idiomas, opciones) IGNORA en
   // silencio parámetros como tessedit_pageseg_mode o
   // tessedit_char_whitelist puestos en "opciones" — esos solo se aplican
@@ -1944,8 +2026,21 @@
       return;
     }
 
-    const nameDataUrl = cropNameRegionDataUrl(dims.w, dims.h);
-    const detectedName = await runOcr(nameDataUrl);
+    // Se identifica el nombre: primero con Gemini (ve la carta completa,
+    // más confiable), y si no está configurado o falla, con Tesseract
+    // sobre el recorte de la franja del nombre (como antes).
+    setLoading(true, "Identificando la carta…");
+    let detectedName = null;
+    try{
+      detectedName = await identifyCardNameWithGemini(cardCanvas, currentGame);
+    }catch(err){
+      console.warn("Gemini no pudo identificar la carta, se usa Tesseract:", err);
+    }
+    if (!detectedName){
+      const nameDataUrl = cropNameRegionDataUrl(dims.w, dims.h);
+      detectedName = await runOcr(nameDataUrl);
+    }
+    setLoading(false);
 
     if (!detectedName){
       showToast("No se detectó un nombre legible, intenta de nuevo.", true);
