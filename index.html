@@ -776,7 +776,7 @@
     toast.classList.toggle("error", isError);
     toast.classList.add("show");
     clearTimeout(showToast._t);
-    showToast._t = setTimeout(() => toast.classList.remove("show"), 3200);
+    showToast._t = setTimeout(() => toast.classList.remove("show"), isError ? 7000 : 3200);
   }
 
   function setStage(text){ stageLabel.textContent = text || ""; }
@@ -1150,13 +1150,28 @@
     return { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" };
   }
 
+  async function readSheetsErrorDetail(resp){
+    try{
+      const body = await resp.text();
+      // La API de Sheets normalmente devuelve JSON con un mensaje legible
+      // en error.message; si no se puede parsear, se usa el texto crudo.
+      try{
+        const parsed = JSON.parse(body);
+        if (parsed && parsed.error && parsed.error.message) return parsed.error.message;
+      }catch(_e){ /* no era JSON, seguimos con el texto crudo */ }
+      return body.slice(0, 200);
+    }catch(_e){
+      return "";
+    }
+  }
+
   async function sheetHasHeaderRow(){
     const range = encodeURIComponent(`${SHEET_NAME}!A1`);
     const resp = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}`, {
       headers: { Authorization: `Bearer ${accessToken}` }
     });
     if (resp.status === 401) throw new Error("SESSION_EXPIRED");
-    if (!resp.ok) throw new Error(`Sheets respondió ${resp.status}`);
+    if (!resp.ok) throw new Error(`Sheets ${resp.status}: ${await readSheetsErrorDetail(resp)}`);
     const data = await resp.json();
     return !!(data.values && data.values.length && data.values[0][0]);
   }
@@ -1168,7 +1183,7 @@
       { method: "PUT", headers: sheetsHeaders(), body: JSON.stringify({ values: [SHEET_HEADERS] }) }
     );
     if (resp.status === 401) throw new Error("SESSION_EXPIRED");
-    if (!resp.ok) throw new Error(`Sheets respondió ${resp.status}`);
+    if (!resp.ok) throw new Error(`Sheets ${resp.status}: ${await readSheetsErrorDetail(resp)}`);
   }
 
   async function ensureSheetHeader(){
@@ -1196,7 +1211,7 @@
       { method: "POST", headers: sheetsHeaders(), body: JSON.stringify({ values: [row] }) }
     );
     if (resp.status === 401) throw new Error("SESSION_EXPIRED");
-    if (!resp.ok) throw new Error(`Sheets respondió ${resp.status}`);
+    if (!resp.ok) throw new Error(`Sheets ${resp.status}: ${await readSheetsErrorDetail(resp)}`);
     return resp.json();
   }
 
@@ -1277,7 +1292,7 @@
         if (sheetErr.message === "SESSION_EXPIRED"){
           showToast("La sesión expiró: la carta se guardó en Drive, pero no en la hoja de cálculo.", true);
         }else{
-          showToast("La carta se guardó en Drive, pero no se pudo escribir en la hoja de cálculo.", true);
+          showToast(`No se guardó en la hoja: ${sheetErr.message}`, true);
         }
       }
     }catch(err){
