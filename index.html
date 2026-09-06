@@ -866,7 +866,7 @@
     <div class="lightbox-fields" id="lightboxFields" style="display:none;"></div>
 
     <div class="lightbox-actions" id="lightboxActions" style="display:none;">
-      <button class="btn-ghost" id="btnFetchValue" type="button">🔎 Buscar valor</button>
+      <button class="btn-ghost" id="btnFetchValue" type="button">🔎 Buscar datos</button>
       <button class="btn-search" id="btnSaveFields" type="button">💾 Guardar cambios</button>
     </div>
   </div>
@@ -1953,39 +1953,11 @@
     }
 
     const game = GAMES[currentGame];
-
-    // En vez de leer con OCR cosas como el costo de maná o el texto de
-    // reglas (poco confiable), se busca la carta por nombre en la base de
-    // datos pública del juego correspondiente. Si se encuentra, hasta el
-    // nombre queda corregido al oficial. Si el nombre del recorte no
-    // encuentra nada, se intenta una segunda vez con la primera línea del
-    // OCR de la carta completa (a veces esa lectura sale mejor). Si
-    // ninguna de las dos encuentra la carta, se sigue con el nombre
-    // detectado tal cual y como respaldo se usa el parseo por OCR.
-    setLoading(true, "Buscando datos en la base de cartas…");
-    let fields = null;
-    let fullText = "";
-    try{
-      fields = await fetchCardDataForGame(currentGame, detectedName);
-    }catch(err){
-      console.warn("No se pudo consultar la base de datos de cartas:", err);
-    }
-    if (!fields){
-      fullText = await runFullCardOcr();
-      const altName = firstNonEmptyLine(fullText);
-      if (altName && altName.toLowerCase() !== detectedName.toLowerCase()){
-        try{
-          fields = await fetchCardDataForGame(currentGame, altName);
-        }catch(err){
-          console.warn("No se pudo consultar la base de datos de cartas (segundo intento):", err);
-        }
-      }
-    }
-    if (!fields){
-      if (!fullText) fullText = await runFullCardOcr();
-      fields = parseCardFieldsForGame(currentGame, fullText, detectedName);
-    }
-    const finalName = fields.nombre || detectedName;
+    // Al escanear solo se guarda el nombre — el resto de los datos
+    // (tipo, coste, HP, ataques, valor, etc.) se buscan después, cuando
+    // se abre la carta desde el buscador. Así el escaneo queda rápido.
+    const fields = { nombre: detectedName };
+    const finalName = detectedName;
 
     // Revisión de duplicados: si ya existe algún archivo guardado con
     // este mismo nombre, se pregunta antes de seguir.
@@ -2273,19 +2245,23 @@
       return;
     }
     btnFetchValue.disabled = true;
-    lightboxStatus.textContent = "Buscando un valor de referencia…";
+    lightboxStatus.textContent = "Buscando datos en la base de cartas…";
     try{
-      const found = await fetchEstimatedValue(name, lightboxGameKey);
+      const found = await fetchCardDataForGame(lightboxGameKey, name);
       if (!found){
-        lightboxStatus.textContent = "No se encontró un valor de referencia para ese nombre.";
+        lightboxStatus.textContent = "No se encontró esa carta en la base de datos. Puedes completar los campos a mano.";
       }else{
-        const valorInput = lightboxFields.querySelector('[data-field="valor"]');
-        if (valorInput) valorInput.value = `${found.amount.toFixed(2)} ${found.currency} (${found.source}, ${found.cardLabel})`;
-        lightboxStatus.textContent = "Valor de referencia cargado — revísalo y guarda los cambios.";
+        // Se rellenan todos los campos que la búsqueda haya traído,
+        // dejando intacto lo que ya estaba escrito en los que no vinieron.
+        Object.keys(found).forEach(key => {
+          const input = lightboxFields.querySelector(`[data-field="${key}"]`);
+          if (input && found[key]) input.value = found[key];
+        });
+        lightboxStatus.textContent = "Datos cargados — revísalos y guarda los cambios.";
       }
     }catch(err){
-      console.error("Error buscando valor:", err);
-      lightboxStatus.textContent = "No se pudo obtener un valor de referencia ahora mismo.";
+      console.error("Error buscando datos de la carta:", err);
+      lightboxStatus.textContent = "No se pudo consultar la base de datos ahora mismo.";
     }finally{
       btnFetchValue.disabled = false;
     }
