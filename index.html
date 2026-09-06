@@ -557,7 +557,7 @@
   }
 
   .lightbox-info{
-    padding:14px 16px 18px;
+    padding:14px 16px 4px;
     display:flex;
     align-items:center;
     justify-content:space-between;
@@ -574,6 +574,53 @@
     font-size:0.66rem;
     color:#7A6F55;
     word-break:break-all;
+  }
+
+  .lightbox-status{
+    padding:0 16px;
+    font-size:0.78rem;
+    color:#7A6F55;
+  }
+  .lightbox-status:empty{ display:none; }
+
+  .lightbox-fields{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px 10px;
+    padding:10px 16px 0;
+  }
+  .lightbox-fields .saved-field.full{ grid-column:1 / -1; }
+  .lightbox-fields .saved-field label{
+    display:block;
+    font-family:var(--font-mono);
+    font-size:0.6rem;
+    color:#7A6F55;
+    margin-bottom:3px;
+  }
+  .lightbox-fields .saved-field input{
+    width:100%;
+    background:#fff;
+    border:1px solid var(--case-line);
+    border-radius:8px;
+    padding:7px 9px;
+    color:#2A2416;
+    font-family:var(--font-mono);
+    font-size:0.75rem;
+  }
+  .lightbox-fields .saved-field input:focus{
+    outline:none;
+    border-color:var(--teal);
+  }
+
+  .lightbox-actions{
+    display:flex;
+    gap:8px;
+    padding:14px 16px 18px;
+  }
+  .lightbox-actions button{ flex:1; font-size:0.76rem; padding:10px; }
+  .lightbox-actions .btn-ghost{
+    border-color:var(--case-line);
+    color:#2A2416;
   }
 
   .toast{
@@ -686,6 +733,23 @@
       </div>
       <button class="btn-icon" id="btnCloseLightbox" type="button" title="Cerrar">✕</button>
     </div>
+
+    <div class="lightbox-status" id="lightboxStatus"></div>
+
+    <div class="lightbox-fields" id="lightboxFields" style="display:none;">
+      <div class="saved-field"><label>Nombre</label><input type="text" id="lbFieldNombre"></div>
+      <div class="saved-field"><label>HP</label><input type="text" id="lbFieldHp"></div>
+      <div class="saved-field"><label>Energía</label><input type="text" id="lbFieldEnergia"></div>
+      <div class="saved-field"><label>Número</label><input type="text" id="lbFieldNumero"></div>
+      <div class="saved-field full"><label>Ataque 1</label><input type="text" id="lbFieldAtaque1"></div>
+      <div class="saved-field full"><label>Ataque 2</label><input type="text" id="lbFieldAtaque2"></div>
+      <div class="saved-field full"><label>Valor estimado</label><input type="text" id="lbFieldValor" placeholder="—"></div>
+    </div>
+
+    <div class="lightbox-actions" id="lightboxActions" style="display:none;">
+      <button class="btn-ghost" id="btnFetchValue" type="button">🔎 Buscar valor</button>
+      <button class="btn-search" id="btnSaveFields" type="button">💾 Guardar cambios</button>
+    </div>
   </div>
 </div>
 
@@ -732,6 +796,18 @@
   const lightboxName    = document.getElementById("lightboxName");
   const lightboxFile    = document.getElementById("lightboxFile");
   const btnCloseLightbox= document.getElementById("btnCloseLightbox");
+  const lightboxStatus  = document.getElementById("lightboxStatus");
+  const lightboxFields  = document.getElementById("lightboxFields");
+  const lightboxActions = document.getElementById("lightboxActions");
+  const btnFetchValue   = document.getElementById("btnFetchValue");
+  const btnSaveFields   = document.getElementById("btnSaveFields");
+  const lbFieldNombre   = document.getElementById("lbFieldNombre");
+  const lbFieldHp       = document.getElementById("lbFieldHp");
+  const lbFieldEnergia  = document.getElementById("lbFieldEnergia");
+  const lbFieldNumero   = document.getElementById("lbFieldNumero");
+  const lbFieldAtaque1  = document.getElementById("lbFieldAtaque1");
+  const lbFieldAtaque2  = document.getElementById("lbFieldAtaque2");
+  const lbFieldValor    = document.getElementById("lbFieldValor");
 
   const video          = document.getElementById("video");
   const staticImg      = document.getElementById("staticImg");
@@ -1143,7 +1219,7 @@
   }
 
   // ── Guardado de los datos en Google Sheets (una fila por carta) ─────
-  const SHEET_HEADERS = ["Fecha", "Nombre", "HP", "Energía", "Número", "Ataque 1", "Ataque 2", "Archivo", "ID de archivo en Drive"];
+  const SHEET_HEADERS = ["Fecha", "Nombre", "HP", "Energía", "Número", "Ataque 1", "Ataque 2", "Archivo", "ID de archivo en Drive", "Valor estimado (USD)"];
   let sheetHeaderEnsured = false;
 
   function sheetsHeaders(){
@@ -1204,7 +1280,8 @@
       fields.ataque1 || "",
       fields.ataque2 || "",
       filename,
-      fileId
+      fileId,
+      fields.valor || ""
     ];
     const resp = await fetch(
       `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}:append?valueInputOption=USER_ENTERED`,
@@ -1222,6 +1299,63 @@
     }
     await ensureSheetHeader();
     await appendCardRowToSheet(fields, filename, fileId);
+  }
+
+  // ── Buscar / actualizar la fila de UNA carta puntual (para el lightbox) ─
+  // Trae todas las filas y busca la que tenga este ID de archivo de Drive
+  // en la columna "ID de archivo en Drive" (columna I, índice 8).
+  async function findSheetRowByFileId(fileId){
+    if (SPREADSHEET_ID.startsWith("TU_")) return null;
+    const range = encodeURIComponent(`${SHEET_NAME}!A2:${String.fromCharCode(64 + SHEET_HEADERS.length)}`);
+    const resp = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}`, {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+    if (resp.status === 401) throw new Error("SESSION_EXPIRED");
+    if (!resp.ok) throw new Error(`Sheets ${resp.status}: ${await readSheetsErrorDetail(resp)}`);
+    const data = await resp.json();
+    const rows = data.values || [];
+    const idx = rows.findIndex(r => (r[8] || "") === fileId);
+    if (idx === -1) return null;
+    // +2 porque A2 es la fila 2 real de la hoja (la 1 es el encabezado)
+    return { rowNumber: idx + 2, values: rows[idx] };
+  }
+
+  async function updateSheetRow(rowNumber, rowValues){
+    const range = encodeURIComponent(`${SHEET_NAME}!A${rowNumber}:${String.fromCharCode(64 + SHEET_HEADERS.length)}${rowNumber}`);
+    const resp = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}?valueInputOption=USER_ENTERED`,
+      { method: "PUT", headers: sheetsHeaders(), body: JSON.stringify({ values: [rowValues] }) }
+    );
+    if (resp.status === 401) throw new Error("SESSION_EXPIRED");
+    if (!resp.ok) throw new Error(`Sheets ${resp.status}: ${await readSheetsErrorDetail(resp)}`);
+  }
+
+  // ── Buscar un valor estimado (mercado) para el nombre de una carta ──
+  // Usa la API pública y gratuita de pokemontcg.io (sin necesidad de
+  // claves ni backend propio) y toma el primer precio de mercado que
+  // encuentre entre las variantes del resultado más parecido.
+  async function fetchEstimatedValue(cardName){
+    const query = encodeURIComponent(`name:"${cardName}"`);
+    const resp = await fetch(`https://api.pokemontcg.io/v2/cards?q=${query}&pageSize=5`);
+    if (!resp.ok) throw new Error(`pokemontcg.io respondió ${resp.status}`);
+    const data = await resp.json();
+    const cards = data.data || [];
+    if (cards.length === 0) return null;
+
+    for (const card of cards){
+      const tcg = card.tcgplayer && card.tcgplayer.prices;
+      if (tcg){
+        const variant = tcg.normal || tcg.holofoil || tcg.reverseHolofoil || tcg.unlimited || Object.values(tcg)[0];
+        if (variant && typeof variant.market === "number"){
+          return { amount: variant.market, currency: "USD", source: "TCGplayer", cardLabel: `${card.name} (${card.set ? card.set.name : ""})` };
+        }
+      }
+      const cm = card.cardmarket && card.cardmarket.prices;
+      if (cm && typeof cm.averageSellPrice === "number"){
+        return { amount: cm.averageSellPrice, currency: "EUR", source: "Cardmarket", cardLabel: `${card.name} (${card.set ? card.set.name : ""})` };
+      }
+    }
+    return null;
   }
 
   // ── Flujo principal: escanear (OCR) + guardar automático en Drive ───
@@ -1451,15 +1585,132 @@
   });
 
   // ── Lightbox ─────────────────────────────────────────────────────────
-  function openLightbox(hit){
+  // Fila de Sheets asociada a la carta que está abierta ahora mismo en el
+  // lightbox (null si esa carta no tiene fila — ej. imágenes que ya
+  // estaban en la carpeta de Drive antes de esta función).
+  let lightboxRow = null; // { rowNumber, values } | null
+  let lightboxFileId = null;
+
+  function fillLightboxFields(values){
+    // values sigue el orden de SHEET_HEADERS: Fecha,Nombre,HP,Energía,
+    // Número,Ataque1,Ataque2,Archivo,ID de archivo,Valor estimado
+    lbFieldNombre.value  = (values && values[1]) || "";
+    lbFieldHp.value      = (values && values[2]) || "";
+    lbFieldEnergia.value = (values && values[3]) || "";
+    lbFieldNumero.value  = (values && values[4]) || "";
+    lbFieldAtaque1.value = (values && values[5]) || "";
+    lbFieldAtaque2.value = (values && values[6]) || "";
+    lbFieldValor.value   = (values && values[9]) || "";
+  }
+
+  async function openLightbox(hit){
     lightboxImg.src = hit.blobUrl;
     lightboxImg.alt = hit.file.name;
     lightboxName.textContent = hit.file.name;
     lightboxFile.textContent = `ID: ${hit.file.id}`;
     lightbox.classList.add("active");
+
+    lightboxFileId = hit.file.id;
+    lightboxRow = null;
+    lightboxFields.style.display = "none";
+    lightboxActions.style.display = "none";
+    fillLightboxFields(null);
+    lightboxStatus.textContent = "Buscando datos guardados de esta carta…";
+
+    try{
+      const row = await findSheetRowByFileId(hit.file.id);
+      if (lightboxFileId !== hit.file.id) return; // se cerró/cambió mientras cargaba
+      lightboxRow = row;
+      fillLightboxFields(row ? row.values : null);
+      if (!lbFieldNombre.value) lbFieldNombre.value = hit.file.name.replace(/\.[^.]+$/, "");
+      lightboxStatus.textContent = row
+        ? ""
+        : "Esta carta no tiene datos guardados en la hoja todavía — puedes completarlos y guardarlos.";
+      lightboxFields.style.display = "grid";
+      lightboxActions.style.display = "flex";
+    }catch(err){
+      console.error("Error buscando fila en Sheets:", err);
+      lightboxStatus.textContent = err.message === "SESSION_EXPIRED"
+        ? "La sesión de Drive expiró, vuelve a conectar."
+        : `No se pudieron cargar los datos: ${err.message}`;
+    }
   }
+
   btnCloseLightbox.addEventListener("click", () => lightbox.classList.remove("active"));
   lightbox.addEventListener("click", (e) => { if (e.target === lightbox) lightbox.classList.remove("active"); });
+
+  btnFetchValue.addEventListener("click", async () => {
+    const name = lbFieldNombre.value.trim();
+    if (!name){
+      showToast("Escribe primero el nombre de la carta.", true);
+      return;
+    }
+    btnFetchValue.disabled = true;
+    lightboxStatus.textContent = "Buscando un valor de referencia…";
+    try{
+      const found = await fetchEstimatedValue(name);
+      if (!found){
+        lightboxStatus.textContent = "No se encontró un valor de referencia para ese nombre.";
+      }else{
+        lbFieldValor.value = `${found.amount.toFixed(2)} ${found.currency} (${found.source}, ${found.cardLabel})`;
+        lightboxStatus.textContent = "Valor de referencia cargado — revísalo y guarda los cambios.";
+      }
+    }catch(err){
+      console.error("Error buscando valor:", err);
+      lightboxStatus.textContent = "No se pudo obtener un valor de referencia ahora mismo.";
+    }finally{
+      btnFetchValue.disabled = false;
+    }
+  });
+
+  btnSaveFields.addEventListener("click", async () => {
+    if (!accessToken){
+      showToast("Primero conecta tu cuenta de Google Drive.", true);
+      return;
+    }
+    const filenameForRow = lightboxRow ? lightboxRow.values[7] : lightboxName.textContent;
+    const rowValues = [
+      lightboxRow ? lightboxRow.values[0] : new Date().toLocaleString("es-CL"),
+      lbFieldNombre.value.trim(),
+      lbFieldHp.value.trim(),
+      lbFieldEnergia.value.trim(),
+      lbFieldNumero.value.trim(),
+      lbFieldAtaque1.value.trim(),
+      lbFieldAtaque2.value.trim(),
+      filenameForRow,
+      lightboxFileId,
+      lbFieldValor.value.trim()
+    ];
+
+    btnSaveFields.disabled = true;
+    try{
+      if (lightboxRow){
+        await updateSheetRow(lightboxRow.rowNumber, rowValues);
+      }else{
+        await ensureSheetHeader();
+        await appendCardRowToSheet({
+          nombre: rowValues[1], hp: rowValues[2], energia: rowValues[3],
+          numero: rowValues[4], ataque1: rowValues[5], ataque2: rowValues[6],
+          valor: rowValues[9]
+        }, filenameForRow, lightboxFileId);
+        // ahora ya existe una fila para esta carta: la recargamos para
+        // poder seguir editándola con "actualizar" en vez de "crear"
+        lightboxRow = await findSheetRowByFileId(lightboxFileId);
+      }
+      showToast("Datos guardados en la hoja de cálculo.");
+      lightboxStatus.textContent = "";
+    }catch(err){
+      console.error("Error guardando cambios en Sheets:", err);
+      showToast(
+        err.message === "SESSION_EXPIRED"
+          ? "La sesión expiró, vuelve a conectar."
+          : `No se pudo guardar: ${err.message}`,
+        true
+      );
+    }finally{
+      btnSaveFields.disabled = false;
+    }
+  });
 
   // ── Arranque ──────────────────────────────────────────────────────
   // La vista de escaneo empieza oculta; la cámara solo se enciende
