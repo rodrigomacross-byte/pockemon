@@ -1141,6 +1141,9 @@
 
   // Recorta solo la franja superior del recuadro (donde va el nombre)
   // para que Tesseract no se distraiga con el arte ni el texto de reglas.
+  // Además se agranda y se sube el contraste: Tesseract lee mucho mejor
+  // texto grande y con buen contraste que un recorte chico tal cual sale
+  // de la cámara.
   function cropNameRegionDataUrl(w, h){
     const guide = guideRectFor(w, h);
     const nameX = guide.x + guide.w * 0.06;
@@ -1148,10 +1151,16 @@
     const nameW = guide.w * 0.88;
     const nameH = guide.h * 0.30;
 
-    cropCanvas.width = nameW;
-    cropCanvas.height = nameH;
+    const targetH = 140; // alto de salida en píxeles, independiente del tamaño real del recorte
+    const scale = targetH / nameH;
+    const outW = Math.max(1, Math.round(nameW * scale));
+    const outH = Math.max(1, Math.round(nameH * scale));
+
+    cropCanvas.width = outW;
+    cropCanvas.height = outH;
     const cctx = cropCanvas.getContext("2d");
-    cctx.drawImage(captureCanvas, nameX, nameY, nameW, nameH, 0, 0, nameW, nameH);
+    cctx.filter = "grayscale(1) contrast(1.35) brightness(1.05)";
+    cctx.drawImage(captureCanvas, nameX, nameY, nameW, nameH, 0, 0, outW, outH);
     return cropCanvas.toDataURL("image/png");
   }
 
@@ -1165,6 +1174,43 @@
     const ctx = cardCanvas.getContext("2d");
     ctx.drawImage(captureCanvas, guide.x, guide.y, guide.w, guide.h, 0, 0, guide.w, guide.h);
     return { w: guide.w, h: guide.h };
+  }
+
+  // ── Detección de foto borrosa ────────────────────────────────────────
+  // Calcula qué tan "nítida" es una imagen usando la varianza del filtro
+  // Laplaciano sobre una versión chica en escala de grises: mientras más
+  // bordes definidos tenga la foto, mayor el número. Una foto con mucho
+  // desenfoque de movimiento da un valor bajo. El umbral es aproximado —
+  // se puede ajustar si resulta muy estricto o muy permisivo.
+  const BLUR_VARIANCE_THRESHOLD = 60;
+
+  function estimateSharpness(sourceCanvas){
+    const w = 160;
+    const h = Math.max(1, Math.round(w * sourceCanvas.height / sourceCanvas.width));
+    const tmp = document.createElement("canvas");
+    tmp.width = w;
+    tmp.height = h;
+    const tctx = tmp.getContext("2d");
+    tctx.drawImage(sourceCanvas, 0, 0, w, h);
+
+    const { data } = tctx.getImageData(0, 0, w, h);
+    const gray = new Float32Array(w * h);
+    for (let i = 0; i < w * h; i++){
+      gray[i] = 0.299 * data[i * 4] + 0.587 * data[i * 4 + 1] + 0.114 * data[i * 4 + 2];
+    }
+
+    let sum = 0, sumSq = 0, count = 0;
+    for (let y = 1; y < h - 1; y++){
+      for (let x = 1; x < w - 1; x++){
+        const idx = y * w + x;
+        const lap = -4 * gray[idx] + gray[idx - 1] + gray[idx + 1] + gray[idx - w] + gray[idx + w];
+        sum += lap;
+        sumSq += lap * lap;
+        count++;
+      }
+    }
+    const mean = sum / count;
+    return sumSq / count - mean * mean; // varianza: más alto = más nítido
   }
 
   // ── Limpieza del texto OCR ───────────────────────────────────────────
@@ -1728,10 +1774,23 @@
   }
 
   // ── Flujo principal: escanear (OCR) + guardar automático en Drive ───
+  // PSM 7 = "tratar la imagen como una única línea de texto": mucho más
+  // preciso que el modo automático (pensado para páginas completas) para
+  // un recorte que solo contiene el nombre. El alfabeto permitido se
+  // limita a letras/espacios/guion/apóstrofo, ya que un nombre de carta
+  // no lleva números ni símbolos — esto reduce bastante el ruido.
+  const NAME_OCR_ALPHABET =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz" +
+    "ÁÉÍÓÚÑÜáéíóúñü '-";
+
   async function runOcr(dataUrl){
     setLoading(true, "Leyendo el nombre de la carta…");
     try{
-      const { data } = await Tesseract.recognize(dataUrl, "spa+eng", { logger: () => {} });
+      const { data } = await Tesseract.recognize(dataUrl, "spa+eng", {
+        logger: () => {},
+        tessedit_pageseg_mode: "7",
+        tessedit_char_whitelist: NAME_OCR_ALPHABET
+      });
       return cleanOcrText(data.text);
     }catch(err){
       console.error("Error de OCR:", err);
@@ -1762,6 +1821,15 @@
     void scanFlash.offsetWidth;
     scanFlash.classList.add("fire");
 
+    // Se recorta primero la carta completa: sirve tanto para revisar que
+    // la foto no esté borrosa como, más adelante, para guardarla.
+    const cardDims = cropToCardGuide(dims.w, dims.h);
+    const sharpness = estimateSharpness(cardCanvas);
+    if (sharpness < BLUR_VARIANCE_THRESHOLD){
+      showToast("La foto salió borrosa (posible movimiento de la cámara). Sostén el celular firme y vuelve a intentar.", true);
+      return;
+    }
+
     const nameDataUrl = cropNameRegionDataUrl(dims.w, dims.h);
     const detectedName = await runOcr(nameDataUrl);
 
@@ -1773,7 +1841,6 @@
     setLoading(true, "Preparando y guardando en Drive…");
     try{
       const game = GAMES[currentGame];
-      const cardDims = cropToCardGuide(dims.w, dims.h);
       const { blob, ext, mimeType } = await buildLightestFile(cardDims.w, cardDims.h);
       const filename = `${toSafeFileName(detectedName)}.${ext}`;
       const uploaded = await uploadToDrive(blob, filename, mimeType);
