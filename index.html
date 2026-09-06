@@ -2035,6 +2035,7 @@
       detectedName = await identifyCardNameWithGemini(cardCanvas, currentGame);
     }catch(err){
       console.warn("Gemini no pudo identificar la carta, se usa Tesseract:", err);
+      showToast(`Gemini falló (${err.message}), usando Tesseract de respaldo…`, true);
     }
     if (!detectedName){
       const nameDataUrl = cropNameRegionDataUrl(dims.w, dims.h);
