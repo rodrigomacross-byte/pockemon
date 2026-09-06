@@ -1001,6 +1001,7 @@
     if (currentStream){
       currentStream.getTracks().forEach(t => t.stop());
       currentStream = null;
+      video.srcObject = null;
     }
     scanView.style.display = "none";
     homeView.style.display = "block";
@@ -1030,6 +1031,7 @@
       if (currentStream){
         currentStream.getTracks().forEach(t => t.stop());
         currentStream = null;
+        video.srcObject = null;
       }
       video.style.display = "none";
       noCameraMsg.style.display = "none";
@@ -1078,12 +1080,24 @@
   async function startCamera(){
     if (currentStream){
       currentStream.getTracks().forEach(t => t.stop());
+      currentStream = null;
     }
+    const requestedMode = currentMode; // se guarda para detectar si el usuario cambió de modo mientras esto cargaba
     try{
-      currentStream = await navigator.mediaDevices.getUserMedia({
+      const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode, width: { ideal: 1280 }, height: { ideal: 1280 } },
         audio: false
       });
+
+      // El usuario alcanzó a cambiar a "Imagen del computador" (u otro
+      // estado) mientras el navegador pedía permiso: se apaga esta
+      // cámara altiro, sin dejarla encendida de fondo.
+      if (requestedMode !== currentMode || currentMode !== "camera"){
+        stream.getTracks().forEach(t => t.stop());
+        return;
+      }
+
+      currentStream = stream;
       video.srcObject = currentStream;
       video.style.setProperty("--mirror", facingMode === "user" ? "-1" : "1");
       noCameraMsg.style.display = "none";
@@ -1757,14 +1771,85 @@
     return null;
   }
 
-  async function fetchEstimatedValueMagic(cardName){
+  async function fetchScryfallCardByName(cardName){
     const resp = await fetch(`https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(cardName)}`);
     if (resp.status === 404) return null; // Scryfall no encontró nada parecido
     if (!resp.ok) throw new Error(`Scryfall respondió ${resp.status}`);
-    const card = await resp.json();
+    return resp.json();
+  }
+
+  async function fetchEstimatedValueMagic(cardName){
+    const card = await fetchScryfallCardByName(cardName);
+    if (!card) return null;
     const usd = card.prices && (card.prices.usd || card.prices.usd_foil);
     if (!usd) return null;
     return { amount: parseFloat(usd), currency: "USD", source: "Scryfall", cardLabel: `${card.name} (${card.set_name || ""})` };
+  }
+
+  // ── Buscar los datos estructurados de una carta por nombre ──────────
+  // En vez de intentar leer con OCR cosas como el costo de maná o el
+  // texto de reglas (poco confiable), se busca la carta por nombre en la
+  // base de datos pública correspondiente y se usan sus datos oficiales.
+  // Solo el NOMBRE sigue viniendo del OCR (para saber qué buscar); si la
+  // búsqueda encuentra la carta, hasta el nombre se corrige al oficial.
+  async function fetchCardDataMagic(cardName){
+    const card = await fetchScryfallCardByName(cardName);
+    if (!card) return null;
+
+    const fields = {
+      nombre: card.name,
+      coste: card.mana_cost || "",
+      tipo: card.type_line || "",
+      pt: (card.power && card.toughness) ? `${card.power}/${card.toughness}` : "",
+      texto: card.oracle_text || ""
+    };
+    const usd = card.prices && (card.prices.usd || card.prices.usd_foil);
+    if (usd){
+      fields.valor = `${parseFloat(usd).toFixed(2)} USD (Scryfall, ${card.name} (${card.set_name || ""}))`;
+    }
+    return fields;
+  }
+
+  async function fetchCardDataPokemon(cardName){
+    const query = encodeURIComponent(`name:"${cardName}"`);
+    const resp = await fetch(`https://api.pokemontcg.io/v2/cards?q=${query}&pageSize=1`);
+    if (!resp.ok) throw new Error(`pokemontcg.io respondió ${resp.status}`);
+    const data = await resp.json();
+    const card = (data.data && data.data[0]) || null;
+    if (!card) return null;
+
+    const fields = { nombre: card.name };
+    if (card.hp) fields.hp = card.hp;
+    if (card.types && card.types.length){
+      const t = card.types[0].toLowerCase();
+      fields.energia = ENERGY_KEYWORDS[t] || card.types[0];
+    }
+    if (card.number && card.set && card.set.printedTotal){
+      fields.numero = `${card.number}/${card.set.printedTotal}`;
+    }
+    if (card.attacks && card.attacks.length){
+      fields.ataque1 = `${card.attacks[0].name} ${card.attacks[0].damage || ""}`.trim();
+      if (card.attacks[1]) fields.ataque2 = `${card.attacks[1].name} ${card.attacks[1].damage || ""}`.trim();
+    }
+
+    const tcg = card.tcgplayer && card.tcgplayer.prices;
+    if (tcg){
+      const variant = tcg.normal || tcg.holofoil || tcg.reverseHolofoil || tcg.unlimited || Object.values(tcg)[0];
+      if (variant && typeof variant.market === "number"){
+        fields.valor = `${variant.market.toFixed(2)} USD (TCGplayer, ${card.name} (${card.set ? card.set.name : ""}))`;
+      }
+    }
+    if (!fields.valor){
+      const cm = card.cardmarket && card.cardmarket.prices;
+      if (cm && typeof cm.averageSellPrice === "number"){
+        fields.valor = `${cm.averageSellPrice.toFixed(2)} EUR (Cardmarket, ${card.name} (${card.set ? card.set.name : ""}))`;
+      }
+    }
+    return fields;
+  }
+
+  async function fetchCardDataForGame(gameKey, cardName){
+    return gameKey === "magic" ? fetchCardDataMagic(cardName) : fetchCardDataPokemon(cardName);
   }
 
   async function fetchEstimatedValue(cardName, gameKey){
@@ -1838,18 +1923,51 @@
       return;
     }
 
+    const game = GAMES[currentGame];
+
+    // En vez de leer con OCR cosas como el costo de maná o el texto de
+    // reglas (poco confiable), se busca la carta por nombre en la base de
+    // datos pública del juego correspondiente. Si se encuentra, hasta el
+    // nombre queda corregido al oficial; si no, se sigue con el nombre
+    // detectado y como respaldo se usa el OCR de la carta completa.
+    setLoading(true, "Buscando datos en la base de cartas…");
+    let fields = null;
+    try{
+      fields = await fetchCardDataForGame(currentGame, detectedName);
+    }catch(err){
+      console.warn("No se pudo consultar la base de datos de cartas:", err);
+    }
+    if (!fields){
+      const fullText = await runFullCardOcr();
+      fields = parseCardFieldsForGame(currentGame, fullText, detectedName);
+    }
+    const finalName = fields.nombre || detectedName;
+
+    // Revisión de duplicados: si ya existe algún archivo guardado con
+    // este mismo nombre, se pregunta antes de seguir.
+    try{
+      const existing = await findExistingFilesByBaseName(toSafeFileName(finalName));
+      if (existing.length > 0){
+        const seguir = confirm(
+          `Ya tienes ${existing.length} carta(s) guardada(s) como "${finalName}".\n\n` +
+          `Aceptar = guardar esta también (quedarán las dos).\n` +
+          `Cancelar = no guardar esta.`
+        );
+        if (!seguir){
+          setLoading(false);
+          showToast("Escaneo cancelado (ya tenías esa carta guardada).");
+          return;
+        }
+      }
+    }catch(err){
+      console.warn("No se pudo revisar duplicados:", err);
+    }
+
     setLoading(true, "Preparando y guardando en Drive…");
     try{
-      const game = GAMES[currentGame];
       const { blob, ext, mimeType } = await buildLightestFile(cardDims.w, cardDims.h);
-      const filename = `${toSafeFileName(detectedName)}.${ext}`;
+      const filename = `${toSafeFileName(finalName)}.${ext}`;
       const uploaded = await uploadToDrive(blob, filename, mimeType);
-
-      // Segunda pasada de OCR (sobre la carta ya recortada, antes de que
-      // el próximo escaneo reutilice el mismo canvas) para completar los
-      // demás campos, según el juego seleccionado.
-      const fullText = await runFullCardOcr();
-      const fields = parseCardFieldsForGame(currentGame, fullText, detectedName);
 
       addSavedLogEntry(uploaded.name || filename, blob.size, fields, game);
       showToast(`Guardado: ${uploaded.name || filename}`);
@@ -1926,6 +2044,22 @@
     const nameClauses = wordsToUse.map(w => `name contains '${w}'`).join(" or ");
 
     return `'${FOLDER_ID}' in parents and mimeType contains 'image/' and (${nameClauses}) and trashed = false`;
+  }
+
+  // ── Revisión de duplicados: ¿ya existe un archivo con este nombre? ──
+  // Búsqueda exacta por el nombre base (sin extensión), a diferencia de
+  // buildDriveQuery que hace coincidencia flexible por palabras sueltas.
+  async function findExistingFilesByBaseName(baseName){
+    const safe = baseName.replace(/'/g, "\\'");
+    const q = `'${FOLDER_ID}' in parents and name contains '${safe}' and trashed = false`;
+    const params = new URLSearchParams({ q, fields: "files(id,name)", pageSize: "10", spaces: "drive" });
+    const resp = await fetch(`https://www.googleapis.com/drive/v3/files?${params.toString()}`, {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+    if (resp.status === 401) throw new Error("SESSION_EXPIRED");
+    if (!resp.ok) throw new Error(`Drive respondió ${resp.status}`);
+    const data = await resp.json();
+    return data.files || [];
   }
 
   async function fetchFileList(query){
