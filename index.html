@@ -764,9 +764,10 @@
     inset:0;
     background:rgba(10,7,20,0.82);
     display:none;
-    align-items:center;
     justify-content:center;
-    padding:24px;
+    align-items:flex-start;
+    padding:24px 24px 60px;
+    overflow-y:auto;
     z-index:40;
   }
   .lightbox.active{ display:flex; }
@@ -2973,8 +2974,14 @@
   lightbox.addEventListener("click", (e) => { if (e.target === lightbox) lightbox.classList.remove("active"); });
 
   // ── Asistente manual de Gemini: copiar imagen + pregunta, pegar respuesta ─
-  btnCopyCardImage.addEventListener("click", async () => {
-    try{
+  btnCopyCardImage.addEventListener("click", () => {
+    // Importante para Safari/iOS: clipboard.write() debe llamarse de
+    // inmediato dentro del gesto del usuario (el click), sin ningún
+    // "await" antes — si no, Safari lo rechaza por no considerarlo ya
+    // parte de la acción del usuario. Por eso el trabajo asíncrono
+    // (bajar la imagen, convertirla a PNG) va DENTRO de una promesa que
+    // se le pasa directo al ClipboardItem, en vez de esperarlo antes.
+    const pngBlobPromise = (async () => {
       const resp = await fetch(lightboxImg.src);
       const originalBlob = await resp.blob();
       // El portapapeles solo acepta PNG para imágenes de forma confiable,
@@ -2984,13 +2991,15 @@
       tmp.width = bitmap.width;
       tmp.height = bitmap.height;
       tmp.getContext("2d").drawImage(bitmap, 0, 0);
-      const pngBlob = await new Promise(resolve => tmp.toBlob(resolve, "image/png"));
-      await navigator.clipboard.write([new ClipboardItem({ "image/png": pngBlob })]);
-      showToast("Imagen copiada — pégala en Gemini (Ctrl+V).");
-    }catch(err){
-      console.error("Error copiando la imagen:", err);
-      showToast("No se pudo copiar la imagen. Tu navegador puede no permitirlo.", true);
-    }
+      return await new Promise(resolve => tmp.toBlob(resolve, "image/png"));
+    })();
+
+    navigator.clipboard.write([new ClipboardItem({ "image/png": pngBlobPromise })])
+      .then(() => showToast("Imagen copiada — pégala en Gemini (Ctrl+V)."))
+      .catch(err => {
+        console.error("Error copiando la imagen:", err);
+        showToast("No se pudo copiar la imagen. Tu navegador puede no permitirlo.", true);
+      });
   });
 
   btnCopyPrompt.addEventListener("click", async () => {
