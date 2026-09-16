@@ -223,6 +223,49 @@
     margin-bottom:16px;
   }
 
+  .value-card{
+    background:linear-gradient(135deg, var(--panel), var(--ink-soft));
+    border:1px solid rgba(255,201,64,0.25);
+    border-radius:var(--radius-lg);
+    padding:16px;
+    margin-bottom:12px;
+    box-shadow:0 6px 20px rgba(0,0,0,0.3);
+  }
+
+  .value-card-top{
+    display:flex;
+    align-items:flex-end;
+    justify-content:space-between;
+    margin-bottom:8px;
+  }
+
+  .value-label{
+    font-family:var(--font-mono);
+    font-size:0.68rem;
+    color:var(--text-lo);
+    margin-bottom:2px;
+  }
+
+  .value-amount{
+    font-family:var(--font-fun);
+    font-size:1.6rem;
+    font-weight:700;
+    color:var(--gold);
+  }
+
+  .value-chart{
+    width:100%;
+    height:44px;
+    display:block;
+  }
+
+  .value-chart-hint{
+    font-family:var(--font-mono);
+    font-size:0.6rem;
+    color:var(--text-lo);
+    margin-top:4px;
+  }
+
   .dashboard{
     display:grid;
     grid-template-columns:1fr 1fr;
@@ -239,6 +282,7 @@
     flex-direction:column;
     align-items:center;
     gap:2px;
+    box-shadow:0 4px 14px rgba(0,0,0,0.25);
   }
   #statPokemon{ border-color:rgba(255,92,92,0.35); }
   #statMagic{ border-color:rgba(63,221,155,0.35); }
@@ -274,6 +318,20 @@
     gap:10px;
     overflow-x:auto;
     padding-bottom:4px;
+  }
+
+  .batch-section{
+    margin-bottom:16px;
+  }
+
+  .batch-btn{
+    width:100%;
+    padding:11px;
+    font-size:0.8rem;
+  }
+
+  .batch-progress{
+    margin-top:8px;
   }
 
   .top-value-card{
@@ -357,6 +415,43 @@
     font-size:0.85rem;
   }
 
+  .set-group{
+    background:var(--panel);
+    border:1px solid rgba(255,255,255,0.12);
+    border-radius:var(--radius-sm);
+    margin-bottom:10px;
+    overflow:hidden;
+  }
+
+  .set-group-header{
+    width:100%;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    background:none;
+    border:none;
+    padding:12px 14px;
+    color:var(--text-hi);
+    font-family:var(--font-fun);
+    font-size:0.82rem;
+    cursor:pointer;
+  }
+
+  .set-group-header .set-count{
+    font-family:var(--font-mono);
+    font-size:0.66rem;
+    color:var(--text-lo);
+    margin-left:8px;
+  }
+
+  .set-group-body{
+    display:none;
+    padding:0 14px 14px;
+    grid-template-columns:repeat(3, 1fr);
+    gap:10px;
+  }
+  .set-group-body.open{ display:grid; }
+
   .home-grid{
     display:grid;
     grid-template-columns:repeat(3, 1fr);
@@ -381,7 +476,10 @@
     border-radius:10px;
     border:1px solid rgba(255,255,255,0.14);
     background:var(--case);
+    box-shadow:0 3px 10px rgba(0,0,0,0.3);
+    transition:transform 0.12s ease;
   }
+  .home-card:active img{ transform:scale(0.96); }
 
   .home-card .home-card-name{
     font-size:0.7rem;
@@ -763,6 +861,52 @@
     color:#2A2416;
   }
 
+  .gemini-assist{
+    margin:0 16px 18px;
+    padding:14px;
+    background:#EFE4CC;
+    border:1px dashed var(--case-line);
+    border-radius:12px;
+  }
+  .gemini-assist-title{
+    font-family:var(--font-fun);
+    font-size:0.82rem;
+    color:#2A2416;
+    margin-bottom:4px;
+  }
+  .gemini-assist-steps{
+    font-size:0.68rem;
+    color:#6B6149;
+    line-height:1.4;
+    margin-bottom:10px;
+  }
+  .gemini-assist-steps a{ color:#2A6E5C; }
+  .gemini-assist-buttons{
+    display:flex;
+    gap:8px;
+    margin-bottom:10px;
+  }
+  .gemini-assist-buttons button{
+    flex:1;
+    font-size:0.72rem;
+    padding:9px;
+    border-color:var(--case-line);
+    color:#2A2416;
+  }
+  #geminiAnswerInput{
+    width:100%;
+    background:#fff;
+    border:1px solid var(--case-line);
+    border-radius:8px;
+    padding:8px 10px;
+    color:#2A2416;
+    font-family:var(--font-mono);
+    font-size:0.72rem;
+    resize:vertical;
+    margin-bottom:8px;
+  }
+  .gemini-apply-btn{ width:100%; font-size:0.78rem; padding:10px; }
+
   .toast{
     position:fixed;
     left:50%;
@@ -803,6 +947,17 @@
 
   <!-- ══════════════════ VISTA DE INICIO ══════════════════ -->
   <div id="homeView">
+    <div class="value-card" id="valueCard">
+      <div class="value-card-top">
+        <div>
+          <div class="value-label">Valor total de la colección</div>
+          <div class="value-amount" id="totalValueAmount">—</div>
+        </div>
+      </div>
+      <svg class="value-chart" id="valueChartSvg" viewBox="0 0 300 60" preserveAspectRatio="none"></svg>
+      <div class="value-chart-hint" id="valueChartHint"></div>
+    </div>
+
     <div class="dashboard">
       <div class="stat-card" id="statPokemon">
         <span class="stat-icon">🔴</span>
@@ -821,13 +976,31 @@
       <div class="top-value-scroll" id="topValueScroll"></div>
     </div>
 
-    <div class="search-home">
+    <div class="batch-section">
+      <button class="btn-ghost batch-btn" id="btnBatchFill" type="button">🔄 Completar datos pendientes</button>
+      <div class="batch-progress" id="batchProgress" style="display:none;">
+        <div class="progress-line active"><div class="bar"></div></div>
+        <div class="stage-label" id="batchStatus"></div>
+      </div>
+    </div>
+
+    <div class="mode-toggle" id="homeModeToggle">
+      <button class="mode-btn active" id="homeModeSearchBtn" type="button">🔎 Buscar</button>
+      <button class="mode-btn" id="homeModeSetsBtn" type="button">📚 Por set</button>
+    </div>
+
+    <div class="search-home" id="searchHomeBlock">
       <label for="searchInput">Buscar cartas guardadas</label>
       <input type="text" id="searchInput" placeholder="Escribe un nombre, ej: Pikachu...">
     </div>
 
     <div id="homeResults">
       <div class="home-hint" id="homeHint">Escribe arriba para ver las cartas guardadas que coincidan.</div>
+    </div>
+
+    <div id="setsView" style="display:none;">
+      <div class="home-hint" id="setsHint" style="display:none;">Cargando sets…</div>
+      <div id="setsList"></div>
     </div>
   </div>
 
@@ -858,7 +1031,8 @@
         y que la página se sirva por http://localhost o https.
       </div>
       <div class="no-file-msg" id="noFileMsg">
-        Elige una imagen de una carta desde tu computador (foto o escaneo) para leerla.
+        Elige una imagen desde tu computador (foto, escaneo o captura de
+        pantalla), o pégala directo con Ctrl+V / Cmd+V.
       </div>
       <div class="card-guide" id="cardGuide">
         <span class="hint">nombre aquí ↑</span>
@@ -883,6 +1057,29 @@
 
 </div>
 
+<!-- Modal: confirmar/corregir el nombre detectado antes de guardar -->
+<div class="lightbox" id="confirmNameModal">
+  <div class="lightbox-card">
+    <div class="lightbox-info" style="justify-content:flex-start;">
+      <h3>Confirma el nombre de la carta</h3>
+    </div>
+    <div class="lightbox-status" id="confirmNameHint">
+      Se generó un nombre correlativo. Si ya sabes el nombre real de la
+      carta, escríbelo aquí; si no, deja este y complétalo después.
+    </div>
+    <div class="lightbox-fields">
+      <div class="saved-field full">
+        <label>Nombre</label>
+        <input type="text" id="confirmNameInput">
+      </div>
+    </div>
+    <div class="lightbox-actions">
+      <button class="btn-ghost" id="btnCancelConfirmName" type="button">Cancelar</button>
+      <button class="btn-search" id="btnAcceptConfirmName" type="button">Guardar</button>
+    </div>
+  </div>
+</div>
+
 <!-- Lightbox: carta ampliada al tocar una miniatura del inicio -->
 <div class="lightbox" id="lightbox">
   <div class="lightbox-card">
@@ -904,6 +1101,21 @@
     <div class="lightbox-actions" id="lightboxActions" style="display:none;">
       <button class="btn-ghost" id="btnFetchValue" type="button">🔎 Buscar datos</button>
       <button class="btn-search" id="btnSaveFields" type="button">💾 Guardar cambios</button>
+    </div>
+
+    <div class="gemini-assist" id="geminiAssist" style="display:none;">
+      <div class="gemini-assist-title">🤖 Completar con Gemini (manual)</div>
+      <div class="gemini-assist-steps">
+        1) Copia la imagen · 2) copia la pregunta · 3) pégalas en
+        <a href="https://gemini.google.com/app" target="_blank" rel="noopener">gemini.google.com ↗</a>
+        · 4) pega aquí la respuesta.
+      </div>
+      <div class="gemini-assist-buttons">
+        <button class="btn-ghost" id="btnCopyCardImage" type="button">🖼️ Copiar imagen</button>
+        <button class="btn-ghost" id="btnCopyPrompt" type="button">📋 Copiar pregunta</button>
+      </div>
+      <textarea id="geminiAnswerInput" rows="3" placeholder="Pega aquí la respuesta de Gemini (Ctrl+V)"></textarea>
+      <button class="btn-search gemini-apply-btn" id="btnApplyGeminiAnswer" type="button">✅ Aplicar respuesta a los campos</button>
     </div>
   </div>
 </div>
@@ -953,10 +1165,27 @@
 
   const searchInput    = document.getElementById("searchInput");
   const homeResults    = document.getElementById("homeResults");
+  const homeModeSearchBtn = document.getElementById("homeModeSearchBtn");
+  const homeModeSetsBtn   = document.getElementById("homeModeSetsBtn");
+  const searchHomeBlock   = document.getElementById("searchHomeBlock");
+  const setsView          = document.getElementById("setsView");
+  const setsHint          = document.getElementById("setsHint");
+  const setsList          = document.getElementById("setsList");
   const statPokemonCount = document.getElementById("statPokemonCount");
+  const totalValueAmount = document.getElementById("totalValueAmount");
+  const valueChartSvg    = document.getElementById("valueChartSvg");
+  const valueChartHint   = document.getElementById("valueChartHint");
   const statMagicCount   = document.getElementById("statMagicCount");
   const topValueSection  = document.getElementById("topValueSection");
   const topValueScroll   = document.getElementById("topValueScroll");
+  const btnBatchFill     = document.getElementById("btnBatchFill");
+  const batchProgress    = document.getElementById("batchProgress");
+  const batchStatus      = document.getElementById("batchStatus");
+
+  const confirmNameModal   = document.getElementById("confirmNameModal");
+  const confirmNameInput   = document.getElementById("confirmNameInput");
+  const btnAcceptConfirmName = document.getElementById("btnAcceptConfirmName");
+  const btnCancelConfirmName = document.getElementById("btnCancelConfirmName");
 
   const lightbox        = document.getElementById("lightbox");
   const lightboxImg     = document.getElementById("lightboxImg");
@@ -968,6 +1197,11 @@
   const lightboxActions = document.getElementById("lightboxActions");
   const btnFetchValue   = document.getElementById("btnFetchValue");
   const btnSaveFields   = document.getElementById("btnSaveFields");
+  const geminiAssist    = document.getElementById("geminiAssist");
+  const btnCopyCardImage = document.getElementById("btnCopyCardImage");
+  const btnCopyPrompt    = document.getElementById("btnCopyPrompt");
+  const geminiAnswerInput = document.getElementById("geminiAnswerInput");
+  const btnApplyGeminiAnswer = document.getElementById("btnApplyGeminiAnswer");
 
   const video          = document.getElementById("video");
   const staticImg      = document.getElementById("staticImg");
@@ -1052,6 +1286,8 @@
     if (searchInput.value.trim()) runHomeSearch(searchInput.value.trim());
     refreshDashboardCounts();
     refreshTopValueCards();
+    refreshValueCard();
+    setsLoaded = false;
   }
 
   btnOpenScan.addEventListener("click", openScanView);
@@ -1104,8 +1340,9 @@
   });
   btnPickFile.addEventListener("click", () => fileInput.click());
 
-  fileInput.addEventListener("change", () => {
-    const file = fileInput.files && fileInput.files[0];
+  // Función compartida: carga cualquier File/Blob de imagen en el visor,
+  // sea que venga del selector de archivos o de pegar con Ctrl+V.
+  function loadImageFile(file){
     if (!file) return;
     if (currentFileUrl) URL.revokeObjectURL(currentFileUrl);
     currentFileUrl = URL.createObjectURL(file);
@@ -1116,6 +1353,30 @@
       noFileMsg.style.display = "none";
       showToast("Imagen cargada. Encuadra el nombre y presiona Escanear.");
     };
+  }
+
+  fileInput.addEventListener("change", () => {
+    loadImageFile(fileInput.files && fileInput.files[0]);
+  });
+
+  // Pegar una imagen (ej. una captura de pantalla copiada) directo con
+  // Ctrl+V / Cmd+V, sin necesidad de guardarla primero como archivo.
+  // Solo actúa si estamos en modo "archivo" del escaneo, para no
+  // interferir con pegar texto en otros campos de la página.
+  document.addEventListener("paste", (e) => {
+    if (scanView.style.display !== "block" || currentMode !== "file") return;
+    const items = e.clipboardData && e.clipboardData.items;
+    if (!items) return;
+    for (const item of items){
+      if (item.type && item.type.startsWith("image/")){
+        const file = item.getAsFile();
+        if (file){
+          loadImageFile(file);
+          e.preventDefault();
+        }
+        break;
+      }
+    }
   });
 
   // ── Cámara ────────────────────────────────────────────────────────
@@ -1364,14 +1625,15 @@
       label: "Pokémon",
       sheetName: "pokemon",
       // Orden real de columnas en la hoja de ese juego
-      rowSchema: ["fecha", "nombre", "hp", "energia", "numero", "ataque1", "ataque2", "archivo", "fileId", "valor"],
-      headers: ["Fecha", "Nombre", "HP", "Energía", "Número", "Ataque 1", "Ataque 2", "Archivo", "ID de archivo en Drive", "Valor estimado (USD)"],
+      rowSchema: ["fecha", "nombre", "hp", "energia", "numero", "ataque1", "ataque2", "set", "archivo", "fileId", "valor"],
+      headers: ["Fecha", "Nombre", "HP", "Energía", "Número", "Ataque 1", "Ataque 2", "Set/Edición", "Archivo", "ID de archivo en Drive", "Valor estimado (USD)"],
       // Campos que se muestran/editan en pantalla (nombre siempre incluido)
       fieldDefs: [
         { key: "nombre",  label: "Nombre" },
         { key: "hp",      label: "HP" },
         { key: "energia", label: "Energía" },
         { key: "numero",  label: "Número" },
+        { key: "set",     label: "Set/Edición", full: true },
         { key: "ataque1", label: "Ataque 1", full: true },
         { key: "ataque2", label: "Ataque 2", full: true }
       ]
@@ -1379,12 +1641,13 @@
     magic: {
       label: "Magic",
       sheetName: "magic",
-      rowSchema: ["fecha", "nombre", "coste", "tipo", "pt", "texto", "archivo", "fileId", "valor"],
-      headers: ["Fecha", "Nombre", "Coste de maná", "Tipo", "Fuerza/Resistencia", "Texto/Habilidad", "Archivo", "ID de archivo en Drive", "Valor estimado (USD)"],
+      rowSchema: ["fecha", "nombre", "coste", "tipo", "pt", "texto", "set", "archivo", "fileId", "valor"],
+      headers: ["Fecha", "Nombre", "Coste de maná", "Tipo", "Fuerza/Resistencia", "Texto/Habilidad", "Set/Edición", "Archivo", "ID de archivo en Drive", "Valor estimado (USD)"],
       fieldDefs: [
         { key: "nombre", label: "Nombre" },
         { key: "coste",  label: "Coste de maná" },
         { key: "pt",     label: "Fuerza/Resist." },
+        { key: "set",    label: "Set/Edición" },
         { key: "tipo",   label: "Tipo", full: true },
         { key: "texto",  label: "Texto/Habilidad", full: true }
       ]
@@ -1750,6 +2013,118 @@
     }
   }
 
+  // ── Valor total de la colección + historial diario ──────────────────
+  // Se guarda un registro simple (Fecha, ValorUSD) en una pestaña
+  // "historial" propia, una fila por día como máximo, para poder pintar
+  // la tendencia. Nota: igual que el Top 10, mezcla USD y EUR sin
+  // convertir — el total es aproximado si hay cartas en ambas monedas.
+  const HISTORY_GAME = { sheetName: "historial", headers: ["Fecha", "ValorUSD"] };
+
+  async function fetchHistoryRows(){
+    const range = encodeURIComponent(`${HISTORY_GAME.sheetName}!A2:B`);
+    const resp = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}`, {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+    if (resp.status === 401) throw new Error("SESSION_EXPIRED");
+    if (!resp.ok) return [];
+    const data = await resp.json();
+    return data.values || [];
+  }
+
+  async function appendHistoryRow(dateStr, amount){
+    const range = encodeURIComponent(`${HISTORY_GAME.sheetName}!A:B`);
+    const resp = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}:append?valueInputOption=USER_ENTERED`,
+      { method: "POST", headers: sheetsHeaders(), body: JSON.stringify({ values: [[dateStr, amount.toFixed(2)]] }) }
+    );
+    if (resp.status === 401) throw new Error("SESSION_EXPIRED");
+    if (!resp.ok) throw new Error(`Sheets ${resp.status}: ${await readSheetsErrorDetail(resp)}`);
+  }
+
+  async function computeTotalValue(){
+    let total = 0;
+    for (const gameKey of Object.keys(GAMES)){
+      let rows = [];
+      try{ rows = await fetchAllRowsRaw(GAMES[gameKey]); }catch(err){ console.warn(err); }
+      const valorIdx = GAMES[gameKey].rowSchema.indexOf("valor");
+      rows.forEach(r => {
+        const amt = parseAmountFromValorText(r[valorIdx]);
+        if (amt !== null) total += amt;
+      });
+    }
+    return total;
+  }
+
+  function todayDateStr(){
+    return new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  }
+
+  // Agrega una fila al historial solo si hoy todavía no tiene una
+  // (como mucho un punto por día). Devuelve todas las filas, incluida
+  // la de hoy.
+  async function recordDailySnapshotIfNeeded(total){
+    const hasHeader = await sheetHasHeaderRow(HISTORY_GAME);
+    if (!hasHeader) await writeSheetHeaderRow(HISTORY_GAME);
+    const rows = await fetchHistoryRows();
+    const today = todayDateStr();
+    const lastRow = rows[rows.length - 1];
+    if (!lastRow || lastRow[0] !== today){
+      await appendHistoryRow(today, total);
+      rows.push([today, total.toFixed(2)]);
+    }
+    return rows;
+  }
+
+  function renderValueChart(rows){
+    valueChartSvg.innerHTML = "";
+    if (!rows || rows.length < 2){
+      valueChartHint.textContent = rows && rows.length === 1
+        ? "Vuelve mañana para empezar a ver la tendencia."
+        : "";
+      return;
+    }
+    const values = rows.map(r => parseFloat(r[1]) || 0);
+    const min = Math.min(...values), max = Math.max(...values);
+    const span = (max - min) || 1;
+    const w = 300, h = 60, pad = 4;
+    const stepX = (w - pad * 2) / (values.length - 1);
+    const points = values.map((v, i) => {
+      const x = pad + i * stepX;
+      const y = h - pad - ((v - min) / span) * (h - pad * 2);
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    }).join(" ");
+
+    const ns = "http://www.w3.org/2000/svg";
+    const polyline = document.createElementNS(ns, "polyline");
+    polyline.setAttribute("points", points);
+    polyline.setAttribute("fill", "none");
+    polyline.setAttribute("stroke", "#FFC940");
+    polyline.setAttribute("stroke-width", "2");
+    polyline.setAttribute("stroke-linecap", "round");
+    polyline.setAttribute("stroke-linejoin", "round");
+    valueChartSvg.appendChild(polyline);
+
+    valueChartHint.textContent = `${rows[0][0]} → ${rows[rows.length - 1][0]}`;
+  }
+
+  async function refreshValueCard(){
+    if (!accessToken || SPREADSHEET_ID.startsWith("TU_")){
+      totalValueAmount.textContent = "—";
+      valueChartSvg.innerHTML = "";
+      valueChartHint.textContent = "";
+      return;
+    }
+    try{
+      const total = await computeTotalValue();
+      totalValueAmount.textContent = `$${total.toFixed(2)}`;
+      const rows = await recordDailySnapshotIfNeeded(total);
+      renderValueChart(rows);
+    }catch(err){
+      console.error("Error actualizando el valor total:", err);
+      totalValueAmount.textContent = "—";
+    }
+  }
+
   // ── Top 10 por valor: junta las filas de ambas pestañas, saca el monto
   // numérico del texto de "Valor estimado" (ej. "12.34 USD (TCGplayer...)"
   // → 12.34) y ordena de mayor a menor. Nota: mezcla USD y EUR sin
@@ -1856,6 +2231,115 @@
     if (!resp.ok) throw new Error(`Sheets ${resp.status}: ${await readSheetsErrorDetail(resp)}`);
   }
 
+  // ── Proceso masivo: completar datos pendientes de todas las cartas ──
+  // Recorre ambas pestañas, encuentra las filas donde solo se guardó el
+  // nombre (sin HP/tipo/coste/etc.) y les busca los datos en la base de
+  // datos correspondiente, una por una, igual que hace "Buscar datos" en
+  // el lightbox pero para todas de una vez.
+  function rowIsMissingData(game, rowValues){
+    const skip = new Set(["fecha", "nombre", "archivo", "fileId", "valor"]);
+    const dataKeys = game.rowSchema.filter(k => !skip.has(k));
+    return dataKeys.every(k => {
+      const idx = game.rowSchema.indexOf(k);
+      return !(rowValues[idx] && String(rowValues[idx]).trim());
+    });
+  }
+
+  async function runBatchFill(){
+    if (!accessToken){
+      showToast("Primero conecta tu cuenta de Google Drive.", true);
+      return;
+    }
+    if (SPREADSHEET_ID.startsWith("TU_")){
+      showToast("Falta configurar SPREADSHEET_ID en el script.", true);
+      return;
+    }
+
+    btnBatchFill.disabled = true;
+    batchProgress.style.display = "block";
+    batchStatus.textContent = "Revisando qué cartas tienen datos pendientes…";
+
+    try{
+      const pendingByGame = {};
+      let totalPending = 0;
+
+      for (const gameKey of Object.keys(GAMES)){
+        const game = GAMES[gameKey];
+        let rows = [];
+        try{
+          rows = await fetchAllRowsRaw(game);
+        }catch(err){
+          if (err.message === "SESSION_EXPIRED") throw err;
+          console.warn(`No se pudo leer la pestaña ${game.sheetName}:`, err);
+          continue;
+        }
+        const nombreIdx = game.rowSchema.indexOf("nombre");
+        const pending = [];
+        rows.forEach((r, i) => {
+          if (!r[nombreIdx]) return; // fila vacía
+          if (rowIsMissingData(game, r)) pending.push({ rowNumber: i + 2, values: r });
+        });
+        pendingByGame[gameKey] = pending;
+        totalPending += pending.length;
+      }
+
+      if (totalPending === 0){
+        batchStatus.textContent = "No hay cartas con datos pendientes por completar.";
+        return;
+      }
+
+      let done = 0, updated = 0, notFound = 0, failed = 0;
+
+      for (const gameKey of Object.keys(pendingByGame)){
+        const game = GAMES[gameKey];
+        const nombreIdx = game.rowSchema.indexOf("nombre");
+        const archivoIdx = game.rowSchema.indexOf("archivo");
+        const fileIdIdx = game.rowSchema.indexOf("fileId");
+        const fechaIdx = game.rowSchema.indexOf("fecha");
+
+        for (const item of pendingByGame[gameKey]){
+          done++;
+          const nombre = item.values[nombreIdx];
+          batchStatus.textContent = `(${done}/${totalPending}) Buscando "${nombre}" (${game.label})…`;
+          try{
+            const found = await fetchCardDataForGame(gameKey, nombre);
+            if (!found){
+              notFound++;
+              continue;
+            }
+            const newRowValues = buildRowForGame(
+              game, found,
+              item.values[archivoIdx], item.values[fileIdIdx], item.values[fechaIdx]
+            );
+            if (!found.nombre) newRowValues[nombreIdx] = nombre;
+            await updateSheetRow(game, item.rowNumber, newRowValues);
+            updated++;
+          }catch(err){
+            if (err.message === "SESSION_EXPIRED") throw err;
+            console.warn(`Error completando "${nombre}":`, err);
+            failed++;
+          }
+        }
+      }
+
+      batchStatus.textContent = `Listo: ${updated} completadas, ${notFound} no encontradas, ${failed} con error.`;
+      showToast(`Proceso terminado: ${updated} carta(s) actualizada(s).`);
+      refreshDashboardCounts();
+      refreshTopValueCards();
+      refreshValueCard();
+      setsLoaded = false;
+    }catch(err){
+      console.error("Error en el proceso masivo:", err);
+      batchStatus.textContent = err.message === "SESSION_EXPIRED"
+        ? "La sesión de Drive expiró, vuelve a conectar."
+        : `Error en el proceso: ${err.message}`;
+    }finally{
+      btnBatchFill.disabled = false;
+    }
+  }
+
+  btnBatchFill.addEventListener("click", runBatchFill);
+
   // ── Buscar un valor estimado (mercado) para el nombre de una carta ──
   // Pokémon usa la API pública de pokemontcg.io; Magic usa la de Scryfall.
   // Ambas son gratuitas, públicas y no necesitan clave ni backend propio.
@@ -1911,7 +2395,8 @@
       coste: card.mana_cost || "",
       tipo: card.type_line || "",
       pt: (card.power && card.toughness) ? `${card.power}/${card.toughness}` : "",
-      texto: card.oracle_text || ""
+      texto: card.oracle_text || "",
+      set: card.set_name || ""
     };
     const usd = card.prices && (card.prices.usd || card.prices.usd_foil);
     if (usd){
@@ -1937,6 +2422,7 @@
     if (card.number && card.set && card.set.printedTotal){
       fields.numero = `${card.number}/${card.set.printedTotal}`;
     }
+    if (card.set && card.set.name) fields.set = card.set.name;
     if (card.attacks && card.attacks.length){
       fields.ataque1 = `${card.attacks[0].name} ${card.attacks[0].damage || ""}`.trim();
       if (card.attacks[1]) fields.ataque2 = `${card.attacks[1].name} ${card.attacks[1].damage || ""}`.trim();
@@ -1997,6 +2483,40 @@
     }
   }
 
+  // Muestra el nombre detectado en un modal editable; el usuario puede
+  // corregirlo o cancelar el guardado. Devuelve el nombre final (string)
+  // o null si canceló.
+  function confirmCardName(initialName){
+    return new Promise(resolve => {
+      confirmNameInput.value = initialName;
+      confirmNameModal.classList.add("active");
+      confirmNameInput.focus();
+      confirmNameInput.select();
+
+      function cleanup(){
+        confirmNameModal.classList.remove("active");
+        btnAcceptConfirmName.removeEventListener("click", onAccept);
+        btnCancelConfirmName.removeEventListener("click", onCancel);
+        confirmNameInput.removeEventListener("keydown", onKeydown);
+      }
+      function onAccept(){
+        const val = confirmNameInput.value.trim();
+        cleanup();
+        resolve(val || null);
+      }
+      function onCancel(){
+        cleanup();
+        resolve(null);
+      }
+      function onKeydown(e){
+        if (e.key === "Enter") onAccept();
+      }
+      btnAcceptConfirmName.addEventListener("click", onAccept);
+      btnCancelConfirmName.addEventListener("click", onCancel);
+      confirmNameInput.addEventListener("keydown", onKeydown);
+    });
+  }
+
   btnScan.addEventListener("click", async () => {
     if (!accessToken){
       showToast("Primero conecta tu cuenta de Google Drive.", true);
@@ -2026,27 +2546,31 @@
       return;
     }
 
-    // Se identifica el nombre: primero con Gemini (ve la carta completa,
-    // más confiable), y si no está configurado o falla, con Tesseract
-    // sobre el recorte de la franja del nombre (como antes).
-    setLoading(true, "Identificando la carta…");
-    let detectedName = null;
+    // En vez de intentar adivinar el nombre automáticamente (Tesseract y
+    // la API de Gemini no son confiables para esto), se genera un
+    // nombre correlativo simple. Si ya sabes el nombre real — por
+    // ejemplo porque se lo preguntaste a Gemini aparte, pegando la
+    // foto — puedes escribirlo en el paso siguiente; si no, se guarda
+    // así y completas los datos después desde el buscador.
+    setLoading(true, "Generando nombre correlativo…");
+    let detectedName;
     try{
-      detectedName = await identifyCardNameWithGemini(cardCanvas, currentGame);
+      const count = await countSheetRows(GAMES[currentGame]);
+      detectedName = `Carta ${String(count + 1).padStart(4, "0")}`;
     }catch(err){
-      console.warn("Gemini no pudo identificar la carta, se usa Tesseract:", err);
-      showToast(`Gemini falló (${err.message}), usando Tesseract de respaldo…`, true);
-    }
-    if (!detectedName){
-      const nameDataUrl = cropNameRegionDataUrl(dims.w, dims.h);
-      detectedName = await runOcr(nameDataUrl);
+      console.warn("No se pudo generar el correlativo desde la hoja, se usa uno con fecha:", err);
+      detectedName = `Carta ${Date.now()}`;
     }
     setLoading(false);
 
-    if (!detectedName){
-      showToast("No se detectó un nombre legible, intenta de nuevo.", true);
+    // Se muestra el nombre para confirmar o reemplazarlo por el nombre
+    // real, antes de guardar nada.
+    const confirmedName = await confirmCardName(detectedName);
+    if (!confirmedName){
+      showToast("Escaneo cancelado.");
       return;
     }
+    detectedName = confirmedName;
 
     const game = GAMES[currentGame];
     // Al escanear solo se guarda el nombre — el resto de los datos
@@ -2130,6 +2654,7 @@
         showToast("Conectado a Google Drive.");
         refreshDashboardCounts();
         refreshTopValueCards();
+        refreshValueCard();
       }
     });
     return tokenClient;
@@ -2269,6 +2794,117 @@
     searchDebounceTimer = setTimeout(() => runHomeSearch(query), 350);
   });
 
+  // ── Vista de inicio: alternar entre "Buscar" y "Por set" ────────────
+  homeModeSearchBtn.addEventListener("click", () => {
+    homeModeSearchBtn.classList.add("active");
+    homeModeSetsBtn.classList.remove("active");
+    searchHomeBlock.style.display = "block";
+    homeResults.style.display = "block";
+    setsView.style.display = "none";
+  });
+
+  homeModeSetsBtn.addEventListener("click", () => {
+    homeModeSetsBtn.classList.add("active");
+    homeModeSearchBtn.classList.remove("active");
+    searchHomeBlock.style.display = "none";
+    homeResults.style.display = "none";
+    setsView.style.display = "block";
+    loadSetsView();
+  });
+
+  // Agrupa todas las cartas guardadas (de ambos juegos) por su campo
+  // "Set/Edición". Las miniaturas de cada grupo se descargan recién
+  // cuando el usuario lo despliega, para no bajar todo de una.
+  let setsLoaded = false;
+
+  async function loadSetsView(){
+    if (!accessToken){
+      setsList.innerHTML = "";
+      setsHint.style.display = "block";
+      setsHint.textContent = "Conecta Google Drive arriba para ver tu colección por set.";
+      return;
+    }
+    if (setsLoaded) return; // ya se cargó en esta sesión; no se recarga sola
+    setsHint.style.display = "block";
+    setsHint.textContent = "Agrupando tu colección por set…";
+    setsList.innerHTML = "";
+
+    try{
+      const groups = {}; // nombreSet -> [{gameKey, nombre, fileId, archivo}]
+      for (const gameKey of Object.keys(GAMES)){
+        const game = GAMES[gameKey];
+        let rows = [];
+        try{ rows = await fetchAllRowsRaw(game); }catch(err){ console.warn(err); }
+        const nombreIdx = game.rowSchema.indexOf("nombre");
+        const setIdx = game.rowSchema.indexOf("set");
+        const fileIdIdx = game.rowSchema.indexOf("fileId");
+        const archivoIdx = game.rowSchema.indexOf("archivo");
+        rows.forEach(r => {
+          if (!r[nombreIdx] || !r[fileIdIdx]) return;
+          const setName = (r[setIdx] || "Sin set").trim() || "Sin set";
+          if (!groups[setName]) groups[setName] = [];
+          groups[setName].push({
+            gameKey, nombre: r[nombreIdx], fileId: r[fileIdIdx], archivo: r[archivoIdx] || r[nombreIdx]
+          });
+        });
+      }
+
+      const setNames = Object.keys(groups).sort((a, b) => a.localeCompare(b));
+      if (setNames.length === 0){
+        setsHint.textContent = "Todavía no hay cartas guardadas con datos de set.";
+        return;
+      }
+      setsHint.style.display = "none";
+
+      setsList.innerHTML = setNames.map((setName, i) => `
+        <div class="set-group">
+          <button class="set-group-header" data-set-index="${i}" type="button">
+            <span>${escapeHtml(setName)}</span>
+            <span class="set-count">${groups[setName].length} carta(s)</span>
+          </button>
+          <div class="set-group-body" id="setGroupBody${i}"></div>
+        </div>
+      `).join("");
+
+      setsList.querySelectorAll(".set-group-header").forEach(header => {
+        header.addEventListener("click", async () => {
+          const idx = header.dataset.setIndex;
+          const body = document.getElementById(`setGroupBody${idx}`);
+          const isOpen = body.classList.toggle("open");
+          if (isOpen && !body.dataset.loaded){
+            body.dataset.loaded = "1";
+            const items = groups[setNames[idx]];
+            body.innerHTML = items.map((_, i) => `
+              <button class="home-card" data-item-index="${i}" type="button">
+                <img alt="${escapeHtml(items[i].nombre)}" src="">
+                <span class="home-card-name">${escapeHtml(items[i].nombre)}</span>
+              </button>
+            `).join("");
+            body.querySelectorAll(".home-card").forEach(async (card, i) => {
+              const item = items[i];
+              try{
+                const blobUrl = await downloadAsBlobUrl(item.fileId);
+                card.querySelector("img").src = blobUrl;
+                card.addEventListener("click", () => openLightbox({
+                  file: { id: item.fileId, name: item.archivo },
+                  blobUrl
+                }));
+              }catch(err){
+                console.warn(`No se pudo cargar la miniatura de ${item.nombre}:`, err);
+              }
+            });
+          }
+        });
+      });
+
+      setsLoaded = true;
+    }catch(err){
+      console.error("Error agrupando por set:", err);
+      setsHint.style.display = "block";
+      setsHint.textContent = "Ocurrió un error cargando la colección por set.";
+    }
+  }
+
   // ── Lightbox ─────────────────────────────────────────────────────────
   // Juego y fila de Sheets asociados a la carta que está abierta ahora
   // mismo en el lightbox (row = null si esa carta no tiene fila todavía).
@@ -2305,6 +2941,8 @@
     lightboxGameKey = currentGame; // por defecto, el juego activo en la vista de escaneo
     lightboxFields.style.display = "none";
     lightboxActions.style.display = "none";
+    geminiAssist.style.display = "none";
+    geminiAnswerInput.value = "";
     renderLightboxFields(null);
     lightboxStatus.textContent = "Buscando datos guardados de esta carta…";
 
@@ -2322,6 +2960,7 @@
       }
       lightboxFields.style.display = "grid";
       lightboxActions.style.display = "flex";
+      geminiAssist.style.display = "block";
     }catch(err){
       console.error("Error buscando fila en Sheets:", err);
       lightboxStatus.textContent = err.message === "SESSION_EXPIRED"
@@ -2332,6 +2971,74 @@
 
   btnCloseLightbox.addEventListener("click", () => lightbox.classList.remove("active"));
   lightbox.addEventListener("click", (e) => { if (e.target === lightbox) lightbox.classList.remove("active"); });
+
+  // ── Asistente manual de Gemini: copiar imagen + pregunta, pegar respuesta ─
+  btnCopyCardImage.addEventListener("click", async () => {
+    try{
+      const resp = await fetch(lightboxImg.src);
+      const originalBlob = await resp.blob();
+      // El portapapeles solo acepta PNG para imágenes de forma confiable,
+      // así que se redibuja la imagen (venga en el formato que venga) a PNG.
+      const bitmap = await createImageBitmap(originalBlob);
+      const tmp = document.createElement("canvas");
+      tmp.width = bitmap.width;
+      tmp.height = bitmap.height;
+      tmp.getContext("2d").drawImage(bitmap, 0, 0);
+      const pngBlob = await new Promise(resolve => tmp.toBlob(resolve, "image/png"));
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": pngBlob })]);
+      showToast("Imagen copiada — pégala en Gemini (Ctrl+V).");
+    }catch(err){
+      console.error("Error copiando la imagen:", err);
+      showToast("No se pudo copiar la imagen. Tu navegador puede no permitirlo.", true);
+    }
+  });
+
+  btnCopyPrompt.addEventListener("click", async () => {
+    const game = GAMES[lightboxGameKey];
+    const keys = lightboxFieldDefs().map(d => d.key);
+    const exampleObj = keys.map(k => `"${k}":"..."`).join(",");
+    const prompt =
+      `Analiza esta imagen de una carta de ${game.label}. Responde ÚNICAMENTE con un ` +
+      `objeto JSON con exactamente estas claves: ${keys.join(", ")}. ` +
+      `Formato: {${exampleObj}}. No agregues explicaciones ni texto fuera del JSON.`;
+    try{
+      await navigator.clipboard.writeText(prompt);
+      showToast("Pregunta copiada — pégala en Gemini después de la imagen.");
+    }catch(err){
+      console.error("Error copiando la pregunta:", err);
+      showToast("No se pudo copiar la pregunta.", true);
+    }
+  });
+
+  btnApplyGeminiAnswer.addEventListener("click", () => {
+    const raw = geminiAnswerInput.value.trim();
+    if (!raw){
+      showToast("Pega primero la respuesta de Gemini en el cuadro.", true);
+      return;
+    }
+    try{
+      // Gemini a veces envuelve el JSON en ```json ... ``` — se limpia por si acaso.
+      const cleaned = raw.replace(/^```json\s*/i, "").replace(/^```\s*/, "").replace(/```$/, "").trim();
+      const parsed = JSON.parse(cleaned);
+      let applied = 0;
+      Object.keys(parsed).forEach(key => {
+        const input = lightboxFields.querySelector(`[data-field="${key}"]`);
+        if (input && parsed[key]){
+          input.value = String(parsed[key]);
+          applied++;
+        }
+      });
+      if (applied === 0){
+        showToast("No se reconoció ningún campo en esa respuesta.", true);
+      }else{
+        showToast(`${applied} campo(s) aplicados — revisa y guarda los cambios.`);
+        geminiAnswerInput.value = "";
+      }
+    }catch(err){
+      console.error("Error interpretando la respuesta de Gemini:", err);
+      showToast("No se pudo leer esa respuesta como JSON. Revisa que copiaste todo el texto.", true);
+    }
+  });
 
   btnFetchValue.addEventListener("click", async () => {
     const current = readLightboxFields();
