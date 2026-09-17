@@ -1661,6 +1661,30 @@
     return resp.json();
   }
 
+  // Renombra un archivo de Drive (solo el nombre, no toca la imagen) —
+  // se usa cuando se corrige el campo "Nombre" de una carta ya guardada,
+  // para que el archivo en Drive coincida con el nombre real.
+  async function renameDriveFile(fileId, newName){
+    const resp = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${fileId}?fields=id,name`,
+      {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newName })
+      }
+    );
+    if (resp.status === 401){
+      accessToken = null;
+      driveDot.classList.remove("connected");
+      driveStatusText.textContent = "Drive no conectado";
+      throw new Error("SESSION_EXPIRED");
+    }
+    if (!resp.ok){
+      throw new Error(`Drive respondió ${resp.status}`);
+    }
+    return resp.json();
+  }
+
   // ── Configuración por juego: cada uno define sus propios campos,
   // su propia pestaña en la hoja de cálculo, y su propia fuente de precio.
   const GAMES = {
@@ -3225,12 +3249,31 @@
     }
     const game = GAMES[lightboxGameKey];
     const fields = readLightboxFields();
-    const filenameForRow = lightboxRow ? lightboxRow.values[game.rowSchema.indexOf("archivo")] : lightboxName.textContent;
+    let filenameForRow = lightboxRow ? lightboxRow.values[game.rowSchema.indexOf("archivo")] : lightboxName.textContent;
     const fechaOverride = lightboxRow ? lightboxRow.values[game.rowSchema.indexOf("fecha")] : null;
-    const rowValues = buildRowForGame(game, fields, filenameForRow, lightboxFileId, fechaOverride);
 
     btnSaveFields.disabled = true;
     try{
+      // Si el nombre que quedó en el campo "Nombre" es distinto al que
+      // tiene el archivo en Drive, se renombra el archivo para que
+      // coincida (conservando su extensión: .jpg o .pdf).
+      const currentBaseName = filenameForRow.replace(/\.[^.]+$/, "");
+      const newBaseName = toSafeFileName(fields.nombre || currentBaseName);
+      if (fields.nombre && newBaseName && newBaseName !== currentBaseName){
+        const ext = (filenameForRow.match(/\.[^.]+$/) || [".jpg"])[0];
+        const newFilename = `${newBaseName}${ext}`;
+        try{
+          const renamed = await renameDriveFile(lightboxFileId, newFilename);
+          filenameForRow = renamed.name || newFilename;
+          showToast(`Archivo renombrado a "${filenameForRow}".`);
+        }catch(renameErr){
+          console.error("Error renombrando el archivo en Drive:", renameErr);
+          if (renameErr.message === "SESSION_EXPIRED") throw renameErr;
+          showToast("No se pudo renombrar el archivo en Drive (se guardan igual los demás datos).", true);
+        }
+      }
+
+      const rowValues = buildRowForGame(game, fields, filenameForRow, lightboxFileId, fechaOverride);
       if (lightboxRow){
         await updateSheetRow(game, lightboxRow.rowNumber, rowValues);
       }else{
