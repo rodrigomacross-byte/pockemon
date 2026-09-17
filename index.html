@@ -3106,33 +3106,85 @@
     }
   });
 
+  // Parser de respaldo para cuando el JSON de Gemini no es válido porque
+  // algún valor trae comillas sin escapar adentro (pasa seguido con el
+  // texto de reglas o el flavor text de las cartas). En vez de exigir
+  // JSON estricto, se buscan las posiciones de cada "clave":" conocida y
+  // se recorta el valor de una hasta justo antes de que empiece la
+  // siguiente — así no importa si el contenido de en medio tiene comillas
+  // sueltas.
+  function lenientParseCardFields(text, expectedKeys){
+    const positions = [];
+    expectedKeys.forEach(key => {
+      const marker = `"${key}":"`;
+      const idx = text.indexOf(marker);
+      if (idx !== -1) positions.push({ key, idx, valueStart: idx + marker.length });
+    });
+    positions.sort((a, b) => a.idx - b.idx);
+
+    const result = {};
+    positions.forEach((pos, i) => {
+      const next = positions[i + 1];
+      let end;
+      if (next){
+        const cut = text.lastIndexOf('","', next.idx);
+        end = (cut !== -1 && cut >= pos.valueStart) ? cut + 1 : next.idx;
+      }else{
+        const cut = text.lastIndexOf('"}');
+        end = (cut !== -1 && cut >= pos.valueStart) ? cut + 1 : text.length;
+      }
+      let value = text.slice(pos.valueStart, end);
+      if (value.endsWith('"')) value = value.slice(0, -1);
+      value = value.replace(/\\n/g, "\n").replace(/\\"/g, '"');
+      result[pos.key] = value;
+    });
+    return result;
+  }
+
   btnApplyGeminiAnswer.addEventListener("click", () => {
     const raw = geminiAnswerInput.value.trim();
     if (!raw){
       showToast("Pega primero la respuesta de Gemini en el cuadro.", true);
       return;
     }
+
+    const start = raw.indexOf("{");
+    const end = raw.lastIndexOf("}");
+    if (start === -1 || end === -1 || end <= start){
+      showToast(
+        "Ese texto parece incompleto. En Gemini, usa el ícono de copiar (📋) " +
+        "debajo de su respuesta en vez de seleccionar el texto a mano.",
+        true
+      );
+      return;
+    }
+    const cleaned = raw.slice(start, end + 1);
+    const expectedKeys = lightboxFieldDefs().map(d => d.key);
+
+    let parsed;
     try{
-      // Gemini a veces envuelve el JSON en ```json ... ``` — se limpia por si acaso.
-      const cleaned = raw.replace(/^```json\s*/i, "").replace(/^```\s*/, "").replace(/```$/, "").trim();
-      const parsed = JSON.parse(cleaned);
-      let applied = 0;
-      Object.keys(parsed).forEach(key => {
-        const input = lightboxFields.querySelector(`[data-field="${key}"]`);
-        if (input && parsed[key]){
-          input.value = String(parsed[key]);
-          applied++;
-        }
-      });
-      if (applied === 0){
-        showToast("No se reconoció ningún campo en esa respuesta.", true);
-      }else{
-        showToast(`${applied} campo(s) aplicados — revisa y guarda los cambios.`);
-        geminiAnswerInput.value = "";
-      }
+      // Intento rápido: si el JSON viene bien formado, se usa tal cual.
+      parsed = JSON.parse(cleaned);
     }catch(err){
-      console.error("Error interpretando la respuesta de Gemini:", err);
-      showToast("No se pudo leer esa respuesta como JSON. Revisa que copiaste todo el texto.", true);
+      // Si falla (comillas sin escapar dentro de algún valor, lo más
+      // común), se recurre al parser tolerante basado en las claves
+      // esperadas.
+      parsed = lenientParseCardFields(cleaned, expectedKeys);
+    }
+
+    let applied = 0;
+    Object.keys(parsed).forEach(key => {
+      const input = lightboxFields.querySelector(`[data-field="${key}"]`);
+      if (input && parsed[key]){
+        input.value = String(parsed[key]);
+        applied++;
+      }
+    });
+    if (applied === 0){
+      showToast("No se reconoció ningún campo en esa respuesta.", true);
+    }else{
+      showToast(`${applied} campo(s) aplicados — revisa y guarda los cambios.`);
+      geminiAnswerInput.value = "";
     }
   });
 
