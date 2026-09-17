@@ -862,6 +862,17 @@
     color:#2A2416;
   }
 
+  .lightbox-rescan{
+    padding:0 16px 14px;
+  }
+  .lightbox-rescan button{
+    width:100%;
+    font-size:0.76rem;
+    padding:10px;
+    border-color:var(--case-line);
+    color:#2A2416;
+  }
+
   .gemini-assist{
     margin:0 16px 18px;
     padding:14px;
@@ -1104,6 +1115,10 @@
       <button class="btn-search" id="btnSaveFields" type="button">💾 Guardar cambios</button>
     </div>
 
+    <div class="lightbox-rescan" id="lightboxRescanRow" style="display:none;">
+      <button class="btn-ghost" id="btnRescanCard" type="button">🔄 Volver a escanear esta carta</button>
+    </div>
+
     <div class="gemini-assist" id="geminiAssist" style="display:none;">
       <div class="gemini-assist-title">🤖 Completar con Gemini (manual)</div>
       <div class="gemini-assist-steps">
@@ -1198,6 +1213,8 @@
   const lightboxActions = document.getElementById("lightboxActions");
   const btnFetchValue   = document.getElementById("btnFetchValue");
   const btnSaveFields   = document.getElementById("btnSaveFields");
+  const lightboxRescanRow = document.getElementById("lightboxRescanRow");
+  const btnRescanCard     = document.getElementById("btnRescanCard");
   const geminiAssist    = document.getElementById("geminiAssist");
   const btnCopyCardImage = document.getElementById("btnCopyCardImage");
   const btnCopyPrompt    = document.getElementById("btnCopyPrompt");
@@ -1289,6 +1306,7 @@
     refreshTopValueCards();
     refreshValueCard();
     setsLoaded = false;
+    replacePhotoTarget = null;
   }
 
   btnOpenScan.addEventListener("click", openScanView);
@@ -1607,6 +1625,30 @@
       body: multipartBody
     });
 
+    if (resp.status === 401){
+      accessToken = null;
+      driveDot.classList.remove("connected");
+      driveStatusText.textContent = "Drive no conectado";
+      throw new Error("SESSION_EXPIRED");
+    }
+    if (!resp.ok){
+      throw new Error(`Drive respondió ${resp.status}`);
+    }
+    return resp.json();
+  }
+
+  // Reemplaza el CONTENIDO de un archivo que ya existe en Drive (mismo
+  // fileId, mismo nombre, misma fila en la hoja) — se usa para "volver a
+  // escanear" una carta cuando la foto guardada quedó mala.
+  async function replaceDriveFileContent(fileId, blob, mimeType){
+    const resp = await fetch(
+      `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`,
+      {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": mimeType },
+        body: blob
+      }
+    );
     if (resp.status === 401){
       accessToken = null;
       driveDot.classList.remove("connected");
@@ -2547,6 +2589,37 @@
       return;
     }
 
+    // Modo "volver a escanear": no se crea una carta nueva ni se toca el
+    // nombre — solo se reemplaza la foto del archivo que ya existía.
+    if (replacePhotoTarget){
+      const target = replacePhotoTarget;
+      setLoading(true, "Actualizando la foto en Drive…");
+      try{
+        const jpegBlob = await frameToJpegBlob(0.85);
+        await replaceDriveFileContent(target.fileId, jpegBlob, "image/jpeg");
+        showToast("Foto actualizada correctamente.");
+        replacePhotoTarget = null;
+        closeScanView();
+        try{
+          const newBlobUrl = await downloadAsBlobUrl(target.fileId);
+          openLightbox({ file: { id: target.fileId, name: target.name }, blobUrl: newBlobUrl });
+        }catch(err){
+          console.warn("No se pudo reabrir la carta tras actualizar la foto:", err);
+        }
+      }catch(err){
+        console.error("Error actualizando la foto en Drive:", err);
+        showToast(
+          err.message === "SESSION_EXPIRED"
+            ? "La sesión de Drive expiró, vuelve a conectar."
+            : "No se pudo actualizar la foto en Drive.",
+          true
+        );
+      }finally{
+        setLoading(false);
+      }
+      return;
+    }
+
     // En vez de intentar adivinar el nombre automáticamente (Tesseract y
     // la API de Gemini no son confiables para esto), se genera un
     // nombre correlativo simple. Si ya sabes el nombre real — por
@@ -2913,6 +2986,10 @@
   let lightboxRow = null; // { rowNumber, values } | null
   let lightboxFileId = null;
 
+  // Cuando no es null, el próximo "Escanear" en la vista de escaneo no
+  // crea una carta nueva: reemplaza la foto de este archivo existente.
+  let replacePhotoTarget = null; // { fileId, name } | null
+
   function lightboxFieldDefs(){
     // "Valor estimado" se agrega siempre al final, sea cual sea el juego
     return [...GAMES[lightboxGameKey].fieldDefs, { key: "valor", label: "Valor estimado", full: true }];
@@ -2942,6 +3019,7 @@
     lightboxGameKey = currentGame; // por defecto, el juego activo en la vista de escaneo
     lightboxFields.style.display = "none";
     lightboxActions.style.display = "none";
+    lightboxRescanRow.style.display = "none";
     geminiAssist.style.display = "none";
     geminiAnswerInput.value = "";
     renderLightboxFields(null);
@@ -2961,6 +3039,7 @@
       }
       lightboxFields.style.display = "grid";
       lightboxActions.style.display = "flex";
+      lightboxRescanRow.style.display = "block";
       geminiAssist.style.display = "block";
     }catch(err){
       console.error("Error buscando fila en Sheets:", err);
@@ -2971,6 +3050,14 @@
   }
 
   btnCloseLightbox.addEventListener("click", () => lightbox.classList.remove("active"));
+
+  btnRescanCard.addEventListener("click", () => {
+    if (!lightboxFileId) return;
+    replacePhotoTarget = { fileId: lightboxFileId, name: lightboxName.textContent || "" };
+    lightbox.classList.remove("active");
+    showToast("Encuadra la carta y toca \"Escanear y guardar\" para reemplazar la foto.");
+    openScanView();
+  });
   lightbox.addEventListener("click", (e) => { if (e.target === lightbox) lightbox.classList.remove("active"); });
 
   // ── Asistente manual de Gemini: copiar imagen + pregunta, pegar respuesta ─
