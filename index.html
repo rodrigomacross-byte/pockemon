@@ -822,6 +822,24 @@
   }
   .lightbox-status:empty{ display:none; }
 
+  .lightbox-game-picker label{
+    display:block;
+    font-family:var(--font-mono);
+    font-size:0.6rem;
+    color:#7A6F55;
+    margin-bottom:3px;
+  }
+  .lightbox-game-picker select{
+    width:100%;
+    background:#fff;
+    border:1px solid var(--case-line);
+    border-radius:8px;
+    padding:8px 9px;
+    color:#2A2416;
+    font-family:var(--font-fun);
+    font-size:0.8rem;
+  }
+
   .lightbox-fields{
     display:grid;
     grid-template-columns:1fr 1fr;
@@ -1058,6 +1076,7 @@
     <div class="mode-toggle" id="gameToggle">
       <button class="mode-btn active" id="gamePokemonBtn" type="button">🔴 Pokémon</button>
       <button class="mode-btn" id="gameMagicBtn" type="button">🔷 Magic</button>
+      <button class="mode-btn" id="gameYugiohBtn" type="button">🟡 Yu-Gi-Oh!</button>
     </div>
 
     <div class="mode-toggle" id="modeToggle">
@@ -1160,6 +1179,11 @@
     </div>
 
     <div class="lightbox-status" id="lightboxStatus"></div>
+
+    <div class="saved-field full lightbox-game-picker" id="lightboxGamePickerRow" style="display:none; padding:0 16px 10px;">
+      <label>Tipo de carta</label>
+      <select id="lightboxGamePicker"></select>
+    </div>
 
     <div class="lightbox-fields" id="lightboxFields" style="display:none;"></div>
 
@@ -1272,6 +1296,8 @@
   const lightboxFile    = document.getElementById("lightboxFile");
   const btnCloseLightbox= document.getElementById("btnCloseLightbox");
   const lightboxStatus  = document.getElementById("lightboxStatus");
+  const lightboxGamePickerRow = document.getElementById("lightboxGamePickerRow");
+  const lightboxGamePicker    = document.getElementById("lightboxGamePicker");
   const lightboxFields  = document.getElementById("lightboxFields");
   const lightboxActions = document.getElementById("lightboxActions");
   const btnFetchValue   = document.getElementById("btnFetchValue");
@@ -1300,6 +1326,7 @@
   const modeFileBtn    = document.getElementById("modeFileBtn");
   const gamePokemonBtn = document.getElementById("gamePokemonBtn");
   const gameMagicBtn   = document.getElementById("gameMagicBtn");
+  const gameYugiohBtn  = document.getElementById("gameYugiohBtn");
   const ocrProgress    = document.getElementById("ocrProgress");
   const stageLabel     = document.getElementById("stageLabel");
   const savedLog       = document.getElementById("savedLog");
@@ -1410,16 +1437,16 @@
   modeCamBtn.addEventListener("click", () => { if (currentMode !== "camera") setMode("camera"); });
   modeFileBtn.addEventListener("click", () => { if (currentMode !== "file") setMode("file"); });
 
-  gamePokemonBtn.addEventListener("click", () => {
-    currentGame = "pokemon";
-    gamePokemonBtn.classList.add("active");
-    gameMagicBtn.classList.remove("active");
-  });
-  gameMagicBtn.addEventListener("click", () => {
-    currentGame = "magic";
-    gameMagicBtn.classList.add("active");
-    gamePokemonBtn.classList.remove("active");
-  });
+  const gameButtons = { pokemon: gamePokemonBtn, magic: gameMagicBtn, yugioh: gameYugiohBtn };
+  function selectGame(gameKey){
+    currentGame = gameKey;
+    Object.keys(gameButtons).forEach(key => {
+      gameButtons[key].classList.toggle("active", key === gameKey);
+    });
+  }
+  gamePokemonBtn.addEventListener("click", () => selectGame("pokemon"));
+  gameMagicBtn.addEventListener("click", () => selectGame("magic"));
+  gameYugiohBtn.addEventListener("click", () => selectGame("yugioh"));
   btnPickFile.addEventListener("click", () => fileInput.click());
 
   // Función compartida: carga cualquier File/Blob de imagen en el visor,
@@ -1792,6 +1819,21 @@
         { key: "set",    label: "Set/Edición" },
         { key: "tipo",   label: "Tipo", full: true },
         { key: "texto",  label: "Texto/Habilidad", full: true },
+        ...LOCATION_FIELD_DEFS
+      ]
+    },
+    yugioh: {
+      label: "Yu-Gi-Oh!",
+      sheetName: "yugioh",
+      rowSchema: ["fecha", "nombre", "atk", "def", "nivel", "tipo", "set", ...LOCATION_ROW_SCHEMA, "archivo", "fileId", "valor"],
+      headers: ["Fecha", "Nombre", "ATK", "DEF", "Nivel/Rank", "Tipo", "Set/Edición", ...LOCATION_HEADERS, "Archivo", "ID de archivo en Drive", "Valor estimado (USD)"],
+      fieldDefs: [
+        { key: "nombre", label: "Nombre" },
+        { key: "atk",    label: "ATK" },
+        { key: "def",    label: "DEF" },
+        { key: "nivel",  label: "Nivel/Rank" },
+        { key: "set",    label: "Set/Edición" },
+        { key: "tipo",   label: "Tipo", full: true },
         ...LOCATION_FIELD_DEFS
       ]
     }
@@ -2602,8 +2644,38 @@
     return fields;
   }
 
+  // YGOPRODeck: base de datos pública y gratuita de Yu-Gi-Oh!, sin clave
+  // ni backend propio — igual que Scryfall y pokemontcg.io.
+  async function fetchCardDataYugioh(cardName){
+    const resp = await fetch(`https://db.ygoprodeck.com/api/v7/cardinfo.php?fname=${encodeURIComponent(cardName)}`);
+    if (resp.status === 400) return null; // YGOPRODeck responde 400 cuando no encuentra nada
+    if (!resp.ok) throw new Error(`YGOPRODeck respondió ${resp.status}`);
+    const data = await resp.json();
+    const card = (data.data && data.data[0]) || null;
+    if (!card) return null;
+
+    const fields = {
+      nombre: card.name,
+      atk: (card.atk || card.atk === 0) ? String(card.atk) : "",
+      def: (card.def || card.def === 0) ? String(card.def) : "",
+      nivel: card.level ? String(card.level) : (card.rank ? String(card.rank) : ""),
+      tipo: card.type || "",
+      set: (card.card_sets && card.card_sets[0] && card.card_sets[0].set_name) || ""
+    };
+    const prices = card.card_prices && card.card_prices[0];
+    if (prices){
+      const price = parseFloat(prices.tcgplayer_price) || parseFloat(prices.cardmarket_price) || 0;
+      if (price > 0){
+        fields.valor = `${price.toFixed(2)} USD (YGOPRODeck, ${card.name})`;
+      }
+    }
+    return fields;
+  }
+
   async function fetchCardDataForGame(gameKey, cardName){
-    return gameKey === "magic" ? fetchCardDataMagic(cardName) : fetchCardDataPokemon(cardName);
+    if (gameKey === "magic") return fetchCardDataMagic(cardName);
+    if (gameKey === "yugioh") return fetchCardDataYugioh(cardName);
+    return fetchCardDataPokemon(cardName);
   }
 
   async function fetchEstimatedValue(cardName, gameKey){
@@ -3268,6 +3340,7 @@
     lightboxFields.style.display = "none";
     lightboxActions.style.display = "none";
     lightboxRescanRow.style.display = "none";
+    lightboxGamePickerRow.style.display = "none";
     geminiAssist.style.display = "none";
     geminiAnswerInput.value = "";
     renderLightboxFields(null);
@@ -3282,8 +3355,14 @@
         renderLightboxFields(rowValuesToFieldsObject(found.game, found.values));
         lightboxStatus.textContent = "";
       }else{
+        // No coincide con ninguna fila guardada: se deja elegir a mano
+        // qué tipo de carta es, en vez de asumir el juego activo.
+        lightboxGamePicker.innerHTML = Object.keys(GAMES)
+          .map(key => `<option value="${key}" ${key === lightboxGameKey ? "selected" : ""}>${GAMES[key].label}</option>`)
+          .join("");
+        lightboxGamePickerRow.style.display = "block";
         renderLightboxFields({ nombre: hit.file.name.replace(/\.[^.]+$/, "") });
-        lightboxStatus.textContent = `No hay datos guardados en la hoja para esta carta — se completará como "${GAMES[lightboxGameKey].label}" si guardas cambios.`;
+        lightboxStatus.textContent = `No hay datos guardados en la hoja para esta carta — elige el tipo y se completará al guardar.`;
       }
       lightboxFields.style.display = "grid";
       lightboxActions.style.display = "flex";
@@ -3296,6 +3375,14 @@
         : `No se pudieron cargar los datos: ${err.message}`;
     }
   }
+
+  lightboxGamePicker.addEventListener("change", () => {
+    // Se conserva el nombre ya escrito al cambiar de tipo de carta
+    const currentFields = readLightboxFields();
+    lightboxGameKey = lightboxGamePicker.value;
+    renderLightboxFields({ nombre: currentFields.nombre || "" });
+    lightboxStatus.textContent = `Se completará como "${GAMES[lightboxGameKey].label}" si guardas cambios.`;
+  });
 
   btnCloseLightbox.addEventListener("click", () => lightbox.classList.remove("active"));
 
