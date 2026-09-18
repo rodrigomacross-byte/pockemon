@@ -738,7 +738,7 @@
     margin-bottom:3px;
   }
 
-  .saved-field input{
+  .saved-field input, .saved-field select{
     width:100%;
     background:var(--ink-soft);
     border:1px solid rgba(255,255,255,0.14);
@@ -836,7 +836,7 @@
     color:#7A6F55;
     margin-bottom:3px;
   }
-  .lightbox-fields .saved-field input{
+  .lightbox-fields .saved-field input, .lightbox-fields .saved-field select{
     width:100%;
     background:#fff;
     border:1px solid var(--case-line);
@@ -871,6 +871,36 @@
     padding:10px;
     border-color:var(--case-line);
     color:#2A2416;
+  }
+
+  .crop-stage{
+    position:relative;
+    width:100%;
+    margin:12px 0;
+    touch-action:none;
+    user-select:none;
+    -webkit-user-select:none;
+  }
+  .crop-stage img{
+    width:100%;
+    display:block;
+    border-radius:8px;
+  }
+  .crop-box{
+    position:absolute;
+    border:2px solid var(--gold);
+    box-shadow:0 0 0 999px rgba(0,0,0,0.55);
+    cursor:move;
+  }
+  .crop-handle{
+    position:absolute;
+    width:26px;
+    height:26px;
+    margin:-13px;
+    background:var(--gold);
+    border:2px solid #fff;
+    border-radius:50%;
+    touch-action:none;
   }
 
   .gemini-assist{
@@ -1069,6 +1099,29 @@
 
 </div>
 
+<!-- Modal: ajustar el recorte de la carta antes de guardar -->
+<div class="lightbox" id="cropModal">
+  <div class="lightbox-card" style="max-width:360px;">
+    <div class="lightbox-info" style="justify-content:flex-start;">
+      <h3>Ajusta el recorte</h3>
+    </div>
+    <div class="lightbox-status">Arrastra las esquinas para ajustar, o el centro para mover el recuadro.</div>
+    <div class="crop-stage" id="cropStage">
+      <img id="cropSourceImg" alt="">
+      <div class="crop-box" id="cropBox">
+        <div class="crop-handle" data-corner="tl" style="left:0%; top:0%;"></div>
+        <div class="crop-handle" data-corner="tr" style="left:100%; top:0%;"></div>
+        <div class="crop-handle" data-corner="bl" style="left:0%; top:100%;"></div>
+        <div class="crop-handle" data-corner="br" style="left:100%; top:100%;"></div>
+      </div>
+    </div>
+    <div class="lightbox-actions">
+      <button class="btn-ghost" id="btnCropCancel" type="button">Cancelar escaneo</button>
+      <button class="btn-search" id="btnCropConfirm" type="button">✅ Usar este recorte</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal: confirmar/corregir el nombre detectado antes de guardar -->
 <div class="lightbox" id="confirmNameModal">
   <div class="lightbox-card">
@@ -1096,7 +1149,7 @@
 <div class="lightbox" id="lightbox">
   <div class="lightbox-card">
     <div class="lightbox-imgwrap">
-      <img id="lightboxImg" alt="">
+      <img id="lightboxImg" alt="" style="cursor:zoom-in;" title="Toca para ver en tamaño completo">
     </div>
     <div class="lightbox-info">
       <div>
@@ -1198,6 +1251,13 @@
   const batchProgress    = document.getElementById("batchProgress");
   const batchStatus      = document.getElementById("batchStatus");
 
+  const cropModal        = document.getElementById("cropModal");
+  const cropStage        = document.getElementById("cropStage");
+  const cropSourceImg    = document.getElementById("cropSourceImg");
+  const cropBox          = document.getElementById("cropBox");
+  const btnCropConfirm   = document.getElementById("btnCropConfirm");
+  const btnCropCancel    = document.getElementById("btnCropCancel");
+
   const confirmNameModal   = document.getElementById("confirmNameModal");
   const confirmNameInput   = document.getElementById("confirmNameInput");
   const btnAcceptConfirmName = document.getElementById("btnAcceptConfirmName");
@@ -1205,6 +1265,9 @@
 
   const lightbox        = document.getElementById("lightbox");
   const lightboxImg     = document.getElementById("lightboxImg");
+  lightboxImg.addEventListener("click", () => {
+    if (lightboxImg.src) window.open(lightboxImg.src, "_blank");
+  });
   const lightboxName    = document.getElementById("lightboxName");
   const lightboxFile    = document.getElementById("lightboxFile");
   const btnCloseLightbox= document.getElementById("btnCloseLightbox");
@@ -1687,13 +1750,24 @@
 
   // ── Configuración por juego: cada uno define sus propios campos,
   // su propia pestaña en la hoja de cálculo, y su propia fuente de precio.
+  const LOCATION_COLORS = ["Rojo", "Azul", "Verde", "Amarillo", "Negro", "Blanco", "Morado", "Naranjo", "Gris", "Café", "Rosado", "Transparente"];
+  const FOLDER_NUMBERS = Array.from({ length: 10 }, (_, i) => i + 1);
+  const PAGE_NUMBERS = Array.from({ length: 30 }, (_, i) => i + 1);
+  const LOCATION_FIELD_DEFS = [
+    { key: "colorCarpeta", label: "Color de carpeta", type: "select", options: LOCATION_COLORS },
+    { key: "carpeta",      label: "N° carpeta",       type: "select", options: FOLDER_NUMBERS },
+    { key: "pagina",       label: "N° página",        type: "select", options: PAGE_NUMBERS }
+  ];
+  const LOCATION_ROW_SCHEMA = ["colorCarpeta", "carpeta", "pagina"];
+  const LOCATION_HEADERS = ["Color de carpeta", "N° carpeta", "N° página"];
+
   const GAMES = {
     pokemon: {
       label: "Pokémon",
       sheetName: "pokemon",
       // Orden real de columnas en la hoja de ese juego
-      rowSchema: ["fecha", "nombre", "hp", "energia", "numero", "ataque1", "ataque2", "set", "archivo", "fileId", "valor"],
-      headers: ["Fecha", "Nombre", "HP", "Energía", "Número", "Ataque 1", "Ataque 2", "Set/Edición", "Archivo", "ID de archivo en Drive", "Valor estimado (USD)"],
+      rowSchema: ["fecha", "nombre", "hp", "energia", "numero", "ataque1", "ataque2", "set", ...LOCATION_ROW_SCHEMA, "archivo", "fileId", "valor"],
+      headers: ["Fecha", "Nombre", "HP", "Energía", "Número", "Ataque 1", "Ataque 2", "Set/Edición", ...LOCATION_HEADERS, "Archivo", "ID de archivo en Drive", "Valor estimado (USD)"],
       // Campos que se muestran/editan en pantalla (nombre siempre incluido)
       fieldDefs: [
         { key: "nombre",  label: "Nombre" },
@@ -1702,21 +1776,23 @@
         { key: "numero",  label: "Número" },
         { key: "set",     label: "Set/Edición", full: true },
         { key: "ataque1", label: "Ataque 1", full: true },
-        { key: "ataque2", label: "Ataque 2", full: true }
+        { key: "ataque2", label: "Ataque 2", full: true },
+        ...LOCATION_FIELD_DEFS
       ]
     },
     magic: {
       label: "Magic",
       sheetName: "magic",
-      rowSchema: ["fecha", "nombre", "coste", "tipo", "pt", "texto", "set", "archivo", "fileId", "valor"],
-      headers: ["Fecha", "Nombre", "Coste de maná", "Tipo", "Fuerza/Resistencia", "Texto/Habilidad", "Set/Edición", "Archivo", "ID de archivo en Drive", "Valor estimado (USD)"],
+      rowSchema: ["fecha", "nombre", "coste", "tipo", "pt", "texto", "set", ...LOCATION_ROW_SCHEMA, "archivo", "fileId", "valor"],
+      headers: ["Fecha", "Nombre", "Coste de maná", "Tipo", "Fuerza/Resistencia", "Texto/Habilidad", "Set/Edición", ...LOCATION_HEADERS, "Archivo", "ID de archivo en Drive", "Valor estimado (USD)"],
       fieldDefs: [
         { key: "nombre", label: "Nombre" },
         { key: "coste",  label: "Coste de maná" },
         { key: "pt",     label: "Fuerza/Resist." },
         { key: "set",    label: "Set/Edición" },
         { key: "tipo",   label: "Tipo", full: true },
-        { key: "texto",  label: "Texto/Habilidad", full: true }
+        { key: "texto",  label: "Texto/Habilidad", full: true },
+        ...LOCATION_FIELD_DEFS
       ]
     }
   };
@@ -1727,12 +1803,27 @@
   // definición de campos y un objeto de valores. Se usa tanto para el
   // registro de guardadas como para el lightbox.
   function fieldsGridHtml(fieldDefs, valuesObj){
-    return fieldDefs.map(def => `
-      <div class="saved-field ${def.full ? "full" : ""}">
-        <label>${def.label}</label>
-        <input type="text" data-field="${def.key}" value="${escapeHtml((valuesObj && valuesObj[def.key]) || "")}" placeholder="—">
-      </div>
-    `).join("");
+    return fieldDefs.map(def => {
+      const currentVal = String((valuesObj && valuesObj[def.key]) || "");
+      let controlHtml;
+      if (def.type === "select"){
+        const optionsHtml = ["<option value=\"\">—</option>"]
+          .concat(def.options.map(opt => {
+            const optStr = String(opt);
+            return `<option value="${escapeHtml(optStr)}" ${optStr === currentVal ? "selected" : ""}>${escapeHtml(optStr)}</option>`;
+          }))
+          .join("");
+        controlHtml = `<select data-field="${def.key}">${optionsHtml}</select>`;
+      }else{
+        controlHtml = `<input type="text" data-field="${def.key}" value="${escapeHtml(currentVal)}" placeholder="—">`;
+      }
+      return `
+        <div class="saved-field ${def.full ? "full" : ""}">
+          <label>${def.label}</label>
+          ${controlHtml}
+        </div>
+      `;
+    }).join("");
   }
 
   function addSavedLogEntry(name, sizeBytes, fields, game){
@@ -2550,6 +2641,127 @@
     }
   }
 
+  // Recorta captureCanvas usando un rectángulo en coordenadas relativas
+  // (0 a 1) y deja el resultado en cardCanvas — se usa después de que el
+  // usuario ajusta el recuadro a mano.
+  function cropToRelativeRect(w, h, rect){
+    const px = { x: rect.x * w, y: rect.y * h, w: rect.w * w, h: rect.h * h };
+    cardCanvas.width = Math.max(1, px.w);
+    cardCanvas.height = Math.max(1, px.h);
+    const ctx = cardCanvas.getContext("2d");
+    ctx.drawImage(captureCanvas, px.x, px.y, px.w, px.h, 0, 0, px.w, px.h);
+    return { w: px.w, h: px.h };
+  }
+
+  // Muestra el fotograma completo con un recuadro arrastrable (arrastra
+  // las esquinas para redimensionar, el centro para mover) para que el
+  // usuario ajuste el recorte a mano antes de guardar. Devuelve el
+  // rectángulo final en coordenadas relativas (0 a 1), o null si canceló.
+  function openCropAdjust(dataUrl, initialRect){
+    return new Promise(resolve => {
+      cropSourceImg.src = dataUrl;
+      let rect = { ...initialRect };
+
+      function applyRectToBox(){
+        cropBox.style.left = `${rect.x * 100}%`;
+        cropBox.style.top = `${rect.y * 100}%`;
+        cropBox.style.width = `${rect.w * 100}%`;
+        cropBox.style.height = `${rect.h * 100}%`;
+      }
+
+      cropSourceImg.onload = () => {
+        applyRectToBox();
+        cropModal.classList.add("active");
+      };
+
+      const MIN_SIZE = 0.08;
+      let dragMode = null; // "move" | "tl" | "tr" | "bl" | "br"
+      let startPointer = { x: 0, y: 0 };
+      let startRect = null;
+
+      function clamp01(v){ return Math.max(0, Math.min(1, v)); }
+
+      function pointerPos(e){
+        const stageRect = cropStage.getBoundingClientRect();
+        const p = e.touches ? e.touches[0] : e;
+        return {
+          x: (p.clientX - stageRect.left) / stageRect.width,
+          y: (p.clientY - stageRect.top) / stageRect.height
+        };
+      }
+
+      function onPointerDown(mode){
+        return (e) => {
+          e.preventDefault();
+          dragMode = mode;
+          startPointer = pointerPos(e);
+          startRect = { ...rect };
+        };
+      }
+
+      function onPointerMove(e){
+        if (!dragMode) return;
+        e.preventDefault();
+        const p = pointerPos(e);
+        const dx = p.x - startPointer.x;
+        const dy = p.y - startPointer.y;
+
+        if (dragMode === "move"){
+          rect.x = clamp01(Math.min(1 - startRect.w, Math.max(0, startRect.x + dx)));
+          rect.y = clamp01(Math.min(1 - startRect.h, Math.max(0, startRect.y + dy)));
+        }else{
+          let { x, y, w, h } = startRect;
+          if (dragMode === "tl"){ x += dx; y += dy; w -= dx; h -= dy; }
+          if (dragMode === "tr"){ y += dy; w += dx; h -= dy; }
+          if (dragMode === "bl"){ x += dx; w -= dx; h += dy; }
+          if (dragMode === "br"){ w += dx; h += dy; }
+          // se evita que el recuadro se achique demasiado o se salga del borde
+          if (w < MIN_SIZE){ if (dragMode === "tl" || dragMode === "bl") x -= (MIN_SIZE - w); w = MIN_SIZE; }
+          if (h < MIN_SIZE){ if (dragMode === "tl" || dragMode === "tr") y -= (MIN_SIZE - h); h = MIN_SIZE; }
+          x = clamp01(x); y = clamp01(y);
+          w = Math.min(w, 1 - x);
+          h = Math.min(h, 1 - y);
+          rect = { x, y, w, h };
+        }
+        applyRectToBox();
+      }
+
+      function onPointerUp(){ dragMode = null; }
+
+      cropBox.addEventListener("mousedown", onPointerDown("move"));
+      cropBox.addEventListener("touchstart", onPointerDown("move"), { passive: false });
+      cropBox.querySelectorAll(".crop-handle").forEach(handle => {
+        const corner = handle.dataset.corner;
+        handle.addEventListener("mousedown", (e) => { e.stopPropagation(); onPointerDown(corner)(e); });
+        handle.addEventListener("touchstart", (e) => { e.stopPropagation(); onPointerDown(corner)(e); }, { passive: false });
+      });
+      document.addEventListener("mousemove", onPointerMove);
+      document.addEventListener("touchmove", onPointerMove, { passive: false });
+      document.addEventListener("mouseup", onPointerUp);
+      document.addEventListener("touchend", onPointerUp);
+
+      function cleanup(){
+        cropModal.classList.remove("active");
+        document.removeEventListener("mousemove", onPointerMove);
+        document.removeEventListener("touchmove", onPointerMove);
+        document.removeEventListener("mouseup", onPointerUp);
+        document.removeEventListener("touchend", onPointerUp);
+        btnCropConfirm.removeEventListener("click", onConfirm);
+        btnCropCancel.removeEventListener("click", onCancel);
+      }
+      function onConfirm(){
+        cleanup();
+        resolve(rect);
+      }
+      function onCancel(){
+        cleanup();
+        resolve(null);
+      }
+      btnCropConfirm.addEventListener("click", onConfirm);
+      btnCropCancel.addEventListener("click", onCancel);
+    });
+  }
+
   // Muestra el nombre detectado en un modal editable; el usuario puede
   // corregirlo o cancelar el guardado. Devuelve el nombre final (string)
   // o null si canceló.
@@ -2606,12 +2818,24 @@
 
     // Se recorta primero la carta completa: sirve tanto para revisar que
     // la foto no esté borrosa como, más adelante, para guardarla.
-    const cardDims = cropToCardGuide(dims.w, dims.h);
+    let cardDims = cropToCardGuide(dims.w, dims.h);
     const sharpness = estimateSharpness(cardCanvas);
     if (sharpness < BLUR_VARIANCE_THRESHOLD){
       showToast("La foto salió borrosa (posible movimiento de la cámara). Sostén el celular firme y vuelve a intentar.", true);
       return;
     }
+
+    // Se deja ajustar el recorte a mano (arrastrando las esquinas) antes
+    // de seguir, partiendo del recuadro guía como punto de partida.
+    const guide = guideRectFor(dims.w, dims.h);
+    const initialRectRel = { x: guide.x / dims.w, y: guide.y / dims.h, w: guide.w / dims.w, h: guide.h / dims.h };
+    const fullFrameDataUrl = captureCanvas.toDataURL("image/jpeg", 0.85);
+    const finalRect = await openCropAdjust(fullFrameDataUrl, initialRectRel);
+    if (!finalRect){
+      showToast("Escaneo cancelado.");
+      return;
+    }
+    cardDims = cropToRelativeRect(dims.w, dims.h, finalRect);
 
     // Modo "volver a escanear": no se crea una carta nueva ni se toca el
     // nombre — solo se reemplaza la foto del archivo que ya existía.
