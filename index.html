@@ -882,6 +882,9 @@
 
   .lightbox-rescan{
     padding:0 16px 14px;
+    display:flex;
+    flex-direction:column;
+    gap:8px;
   }
   .lightbox-rescan button{
     width:100%;
@@ -1194,6 +1197,7 @@
 
     <div class="lightbox-rescan" id="lightboxRescanRow" style="display:none;">
       <button class="btn-ghost" id="btnRescanCard" type="button">🔄 Volver a escanear esta carta</button>
+      <button class="btn-ghost" id="btnCropSavedImage" type="button">✂️ Recortar esta foto (sin re-fotografiar)</button>
     </div>
 
     <div class="gemini-assist" id="geminiAssist" style="display:none;">
@@ -1304,6 +1308,7 @@
   const btnSaveFields   = document.getElementById("btnSaveFields");
   const lightboxRescanRow = document.getElementById("lightboxRescanRow");
   const btnRescanCard     = document.getElementById("btnRescanCard");
+  const btnCropSavedImage = document.getElementById("btnCropSavedImage");
   const geminiAssist    = document.getElementById("geminiAssist");
   const btnCopyCardImage = document.getElementById("btnCopyCardImage");
   const btnCopyPrompt    = document.getElementById("btnCopyPrompt");
@@ -3393,6 +3398,53 @@
     showToast("Encuadra la carta y toca \"Escanear y guardar\" para reemplazar la foto.");
     openScanView();
   });
+
+  btnCropSavedImage.addEventListener("click", async () => {
+    if (!lightboxFileId || !lightboxImg.src) return;
+    const targetFileId = lightboxFileId;
+
+    try{
+      // Se carga la imagen ya guardada en el mismo canvas que usa el
+      // escaneo normal, para poder reusar el recortador y la subida a
+      // Drive tal cual, sin pasar por la cámara.
+      const resp = await fetch(lightboxImg.src);
+      const originalBlob = await resp.blob();
+      const bitmap = await createImageBitmap(originalBlob);
+      captureCanvas.width = bitmap.width;
+      captureCanvas.height = bitmap.height;
+      captureCanvas.getContext("2d").drawImage(bitmap, 0, 0);
+
+      lightbox.classList.remove("active");
+      // Se parte de un recuadro con un margen chico, para que sea fácil
+      // ver que hay que ajustarlo hacia adentro.
+      const initialRect = { x: 0.04, y: 0.04, w: 0.92, h: 0.92 };
+      const fullFrameDataUrl = captureCanvas.toDataURL("image/jpeg", 0.9);
+      const finalRect = await openCropAdjust(fullFrameDataUrl, initialRect);
+      if (!finalRect){
+        showToast("Recorte cancelado.");
+        openLightbox({ file: { id: targetFileId, name: lightboxName.textContent }, blobUrl: lightboxImg.src });
+        return;
+      }
+      cropToRelativeRect(bitmap.width, bitmap.height, finalRect);
+
+      showToast("Guardando el recorte en Drive…");
+      const jpegBlob = await frameToJpegBlob(0.9);
+      await replaceDriveFileContent(targetFileId, jpegBlob, "image/jpeg");
+      showToast("Foto recortada y actualizada correctamente.");
+
+      const newBlobUrl = await downloadAsBlobUrl(targetFileId);
+      openLightbox({ file: { id: targetFileId, name: lightboxName.textContent }, blobUrl: newBlobUrl });
+    }catch(err){
+      console.error("Error recortando la imagen guardada:", err);
+      showToast(
+        err.message === "SESSION_EXPIRED"
+          ? "La sesión de Drive expiró, vuelve a conectar."
+          : "No se pudo recortar/guardar la imagen.",
+        true
+      );
+    }
+  });
+
   lightbox.addEventListener("click", (e) => { if (e.target === lightbox) lightbox.classList.remove("active"); });
 
   // ── Asistente manual de Gemini: copiar imagen + pregunta, pegar respuesta ─
