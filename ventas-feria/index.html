@@ -1,0 +1,745 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Ventas feria</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#14532d">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Ventas feria">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<style>
+:root {
+  --bg: #f3f4f0;
+  --card: #ffffff;
+  --fg: #1a1f1b;
+  --muted: #5a645d;
+  --line: #d8dcd4;
+  --accent: #14532d;
+  --accent-fg: #ffffff;
+  --accent-soft: #e2efe7;
+  --warn: #8a4b00;
+  --warn-bg: #fff1d6;
+  --warn-line: #f0c36a;
+  --danger: #a61b14;
+  --danger-bg: #fde7e5;
+  --ok: #14532d;
+  --shadow: 0 1px 2px rgba(0,0,0,.08);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #101411;
+    --card: #1a201c;
+    --fg: #e7ece8;
+    --muted: #9aa59d;
+    --line: #2e3631;
+    --accent: #4cc38a;
+    --accent-fg: #07210f;
+    --accent-soft: #1c3426;
+    --warn: #ffcf7a;
+    --warn-bg: #3a2a0a;
+    --warn-line: #6b4d12;
+    --danger: #ff9a92;
+    --danger-bg: #3d1714;
+    --ok: #4cc38a;
+    --shadow: none;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  -webkit-text-size-adjust: 100%;
+}
+#app { max-width: 560px; margin: 0 auto; padding-bottom: 40px; }
+h1 { font-size: 20px; margin: 0; }
+h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 22px 0 8px; font-weight: 700; }
+button, .btn { font: inherit; }
+.bar { display: flex; align-items: center; gap: 10px; padding: 14px 0 10px; }
+.bar .grow { flex: 1; min-width: 0; }
+.bar .sub { font-size: 12px; color: var(--muted); }
+.icon-btn { width: 44px; height: 44px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); color: var(--fg); display: grid; place-items: center; cursor: pointer; }
+.btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 52px; padding: 12px 16px; border-radius: 14px; border: 1px solid var(--line); background: var(--card); color: var(--fg); font-weight: 600; cursor: pointer; text-align: center; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+.btn.danger { color: var(--danger); }
+.btn.ghost { background: transparent; border-color: transparent; color: var(--muted); min-height: 44px; }
+.btn[disabled] { opacity: .5; cursor: default; }
+.btn.small { min-height: 44px; width: auto; padding: 8px 14px; border-radius: 12px; }
+.row { display: flex; gap: 10px; }
+.row > * { flex: 1; min-width: 0; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 14px; box-shadow: var(--shadow); }
+.stack { display: grid; gap: 10px; }
+.status { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); padding: 4px 0 12px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: var(--danger); flex: none; }
+.dot.on { background: var(--ok); }
+.banner { border-radius: 14px; padding: 12px 14px; border: 1px solid var(--warn-line); background: var(--warn-bg); color: var(--warn); font-weight: 600; display: grid; gap: 10px; }
+.banner.red { border-color: var(--danger); background: var(--danger-bg); color: var(--danger); }
+.banner.info { border-color: var(--line); background: var(--card); color: var(--muted); font-weight: 500; }
+.banner .btn { background: transparent; border-color: currentColor; color: inherit; min-height: 44px; }
+.sale { display: flex; align-items: center; gap: 12px; padding: 12px 14px; cursor: pointer; width: 100%; text-align: left; color: inherit; }
+.sale .num { font-weight: 800; font-size: 18px; min-width: 52px; }
+.sale .meta { flex: 1; min-width: 0; font-size: 14px; color: var(--muted); }
+.sale .meta b { color: var(--fg); font-weight: 600; }
+.pill { font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; white-space: nowrap; border: 1px solid var(--line); color: var(--muted); }
+.pill.draft { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+.pill.closed { background: var(--warn-bg); color: var(--warn); border-color: var(--warn-line); }
+.pill.up { background: transparent; color: var(--ok); border-color: var(--ok); }
+.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.thumb { position: relative; aspect-ratio: 1; border-radius: 12px; overflow: hidden; background: var(--line); border: 1px solid var(--line); padding: 0; cursor: pointer; }
+.thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.thumb .n { position: absolute; left: 6px; top: 6px; background: rgba(0,0,0,.65); color: #fff; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
+.thumb .d { position: absolute; left: 6px; bottom: 6px; background: var(--warn-bg); color: var(--warn); font-size: 12px; font-weight: 800; padding: 2px 8px; border-radius: 999px; }
+.counter { font-size: 15px; font-weight: 700; margin: 10px 0 0; }
+.seg { display: flex; gap: 8px; }
+.seg button { flex: 1; min-height: 50px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); color: var(--fg); font-weight: 700; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+.choice { display: block; width: 100%; text-align: left; border-radius: 14px; border: 2px solid var(--line); background: var(--card); color: var(--fg); padding: 12px 14px; cursor: pointer; }
+.choice b { display: block; font-size: 16px; }
+.choice span { color: var(--muted); font-size: 14px; }
+.choice[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
+label.f { display: grid; gap: 6px; font-size: 14px; color: var(--muted); font-weight: 600; }
+input[type=text], input[type=number], input[type=url], input[type=password], select, textarea {
+  font: inherit; width: 100%; min-height: 48px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); color: var(--fg);
+}
+textarea { min-height: 80px; resize: vertical; }
+input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible, .btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.errors { border-radius: 14px; border: 1px solid var(--danger); background: var(--danger-bg); color: var(--danger); padding: 12px 14px; font-weight: 600; }
+.errors ul { margin: 6px 0 0; padding-left: 20px; }
+details.opt { border: 1px solid var(--line); border-radius: 14px; background: var(--card); padding: 0 14px; }
+details.opt summary { min-height: 48px; display: flex; align-items: center; font-weight: 700; cursor: pointer; }
+details.opt .stack { padding: 4px 0 14px; }
+.kv { display: grid; grid-template-columns: 120px 1fr; gap: 6px 10px; font-size: 14px; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; font-weight: 600; word-break: break-word; }
+.sheet-back { position: fixed; inset: 0; background: rgba(0,0,0,.55); display: flex; align-items: flex-end; justify-content: center; z-index: 20; }
+.sheet { width: 100%; max-width: 560px; max-height: 92vh; overflow: auto; background: var(--bg); border-radius: 20px 20px 0 0; padding: 16px max(16px, env(safe-area-inset-left, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)); }
+.sheet img { width: 100%; max-height: 42vh; object-fit: contain; border-radius: 12px; background: #000; display: block; }
+#toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: #111; color: #fff; padding: 10px 16px; border-radius: 999px; font-weight: 600; font-size: 14px; z-index: 30; max-width: 90vw; }
+.muted { color: var(--muted); font-size: 14px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+@media (prefers-reduced-motion: no-preference) { .btn, .thumb, .choice { transition: transform .05s; } .btn:active, .thumb:active, .choice:active { transform: scale(.985); } }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="sheet" hidden></div>
+<div id="toast" hidden></div>
+
+<script>
+(() => {
+'use strict';
+
+const VERSION = '1.0';
+const MAX_SIDE = 1280;
+const JPEG_Q = 0.72;
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const pad = (n, l = 2) => String(n).padStart(l, '0');
+const rand = (n) => { const a = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; let o = ''; for (let i = 0; i < n; i++) o += a[Math.floor(Math.random() * a.length)]; return o; };
+const money = (v) => '$' + Number(v).toLocaleString('es-CL');
+const hhmm = (iso) => { const d = new Date(iso); return pad(d.getHours()) + ':' + pad(d.getMinutes()); };
+const dmy = (iso) => { const d = new Date(iso); return pad(d.getDate()) + '/' + pad(d.getMonth() + 1); };
+const fmtDisc = (d) => !d ? '' : (d.type === 'pct' ? d.value + '%' : money(d.value));
+
+/* ---------- IndexedDB ---------- */
+let db;
+function openDB() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open('ventas-feria', 1);
+    r.onupgradeneeded = () => {
+      const d = r.result;
+      d.createObjectStore('sales', { keyPath: 'id' });
+      const p = d.createObjectStore('photos', { keyPath: 'id' });
+      p.createIndex('saleId', 'saleId');
+      d.createObjectStore('meta', { keyPath: 'k' });
+    };
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+}
+function tx(store, mode, fn) {
+  return new Promise((res, rej) => {
+    const t = db.transaction(store, mode);
+    const s = t.objectStore(store);
+    let out;
+    const rq = fn(s);
+    if (rq) rq.onsuccess = () => { out = rq.result; };
+    t.oncomplete = () => res(out);
+    t.onerror = () => rej(t.error);
+    t.onabort = () => rej(t.error);
+  });
+}
+const dbGet = (st, k) => tx(st, 'readonly', (s) => s.get(k));
+const dbPut = (st, v) => tx(st, 'readwrite', (s) => s.put(v));
+const dbDel = (st, k) => tx(st, 'readwrite', (s) => s.delete(k));
+const dbAll = (st) => tx(st, 'readonly', (s) => s.getAll());
+const photosOf = (id) => tx('photos', 'readonly', (s) => s.index('saleId').getAll(id)).then((a) => (a || []).sort((x, y) => x.order - y.order));
+const countPhotos = (id) => tx('photos', 'readonly', (s) => s.index('saleId').count(id));
+async function getMeta(k) { const r = await dbGet('meta', k); return r ? r.v : undefined; }
+const setMeta = (k, v) => dbPut('meta', { k, v });
+
+/* ---------- estado ---------- */
+let view = 'home';          // home | sale | settings
+let curId = null;
+let cfg = null;             // { u, k }
+let syncing = false;
+let syncMsg = '';
+let syncingId = null;
+let urls = [];              // object URLs vivas
+let busy = '';              // mensaje mientras se guardan fotos
+let closeErrors = [];
+let storagePersisted = null;
+
+/* ---------- configuración ---------- */
+async function loadCfg() {
+  let c = await getMeta('cfg');
+  if (!c) { try { c = JSON.parse(localStorage.getItem('vf_cfg') || 'null'); } catch (e) { c = null; } }
+  cfg = c && c.u && c.k ? c : null;
+}
+async function saveCfg(u, k) {
+  cfg = { u: u.trim(), k: k.trim() };
+  await setMeta('cfg', cfg);
+  try { localStorage.setItem('vf_cfg', JSON.stringify(cfg)); } catch (e) {}
+}
+function parseCode(text) {
+  const t = String(text || '').trim();
+  let m = t.match(/(https:\/\/script\.google\.com\/\S+?\/exec)[\s|#]+(\S+)/);
+  if (m) return { u: m[1], k: m[2] };
+  m = t.match(/^cfg=(.+)$/);
+  try {
+    const j = JSON.parse(atob((m ? m[1] : t).replace(/-/g, '+').replace(/_/g, '/')));
+    if (j.u && j.k) return { u: j.u, k: j.k };
+  } catch (e) {}
+  return null;
+}
+async function readHashCfg() {
+  const h = location.hash.replace(/^#/, '');
+  if (!h.startsWith('cfg=')) return;
+  const p = parseCode(h);
+  history.replaceState(null, '', location.pathname + location.search);
+  if (p) { await saveCfg(p.u, p.k); toast('Configuración guardada'); }
+}
+
+/* ---------- ventas ---------- */
+async function newSale() {
+  let seq = (await getMeta('seq')) || 0;
+  seq += 1;
+  await setMeta('seq', seq);
+  const dev = await getMeta('dev');
+  const d = new Date();
+  const ymd = String(d.getFullYear()).slice(2) + pad(d.getMonth() + 1) + pad(d.getDate());
+  const sale = {
+    id: 'V-' + ymd + '-' + dev + pad(seq, 3) + '-' + rand(3),
+    dev, seq, createdAt: d.toISOString(), status: 'draft',
+    disc: null, saleDiscount: null, action: null, pay: '', total: '', boleta: '', note: ''
+  };
+  await dbPut('sales', sale);
+  return sale;
+}
+const saleLabel = (s) => '#' + pad(s.seq, 3);
+
+async function compress(file) {
+  let bmp = null;
+  try { bmp = await createImageBitmap(file, { imageOrientation: 'from-image' }); } catch (e) { bmp = null; }
+  if (!bmp) {
+    bmp = await new Promise((res, rej) => {
+      const u = URL.createObjectURL(file);
+      const im = new Image();
+      im.onload = () => { res(im); URL.revokeObjectURL(u); };
+      im.onerror = () => { rej(new Error('img')); URL.revokeObjectURL(u); };
+      im.src = u;
+    });
+  }
+  const w = bmp.width, h = bmp.height;
+  const sc = Math.min(1, MAX_SIDE / Math.max(w, h));
+  const c = document.createElement('canvas');
+  c.width = Math.round(w * sc); c.height = Math.round(h * sc);
+  c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+  if (bmp.close) bmp.close();
+  return new Promise((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error('blob'))), 'image/jpeg', JPEG_Q));
+}
+
+async function addFiles(files) {
+  const sale = await dbGet('sales', curId);
+  if (!sale || sale.status !== 'draft') return;
+  const list = Array.from(files || []);
+  if (!list.length) return;
+  const ex = await photosOf(sale.id);
+  let order = ex.length ? Math.max(...ex.map((p) => p.order)) + 1 : 1;
+  let ok = 0;
+  for (let i = 0; i < list.length; i++) {
+    busy = 'Guardando foto ' + (i + 1) + ' de ' + list.length + '…';
+    render();
+    try {
+      const blob = await compress(list[i]);
+      await dbPut('photos', { id: sale.id + '-' + pad(order, 3) + '-' + rand(3), saleId: sale.id, order, blob, discount: null, createdAt: new Date().toISOString() });
+      order++; ok++;
+    } catch (e) { toast('No se pudo leer una foto'); }
+  }
+  busy = '';
+  render();
+  if (ok) toast(ok === 1 ? 'Foto guardada' : ok + ' fotos guardadas');
+}
+
+function validate(sale, photos) {
+  const e = [];
+  if (!photos.length) e.push('Agrega al menos una foto.');
+  if (sale.disc !== 'no' && sale.disc !== 'si') e.push('Responde si agregas descuento.');
+  if (sale.disc === 'si' && !sale.saleDiscount && !photos.some((p) => p.discount)) e.push('Indica el descuento: de la venta completa o de una foto.');
+  if (!sale.action) e.push('Elige qué hacer con la venta.');
+  return e;
+}
+
+/* ---------- envío ---------- */
+const blobToB64 = (b) => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.onerror = () => rej(r.error); r.readAsDataURL(b); });
+
+async function buildPayload(sale) {
+  const photos = await photosOf(sale.id);
+  const out = [];
+  for (let i = 0; i < photos.length; i++) {
+    out.push({ n: i + 1, discount: photos[i].discount || null, mime: 'image/jpeg', data: await blobToB64(photos[i].blob) });
+  }
+  const { id, dev, seq, createdAt, closedAt, disc, saleDiscount, action, pay, total, boleta, note } = sale;
+  return { key: cfg.k, action: 'sale', sale: { id, dev, seq, createdAt, closedAt, disc, saleDiscount, action, pay, total, boleta, note, photoCount: photos.length }, photos: out };
+}
+
+async function postSale(sale) {
+  const payload = await buildPayload(sale);
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), 90000);
+  try {
+    const r = await fetch(cfg.u, { method: 'POST', body: JSON.stringify(payload), headers: { 'Content-Type': 'text/plain;charset=utf-8' }, redirect: 'follow', signal: ctl.signal });
+    const j = await r.json();
+    if (j && j.ok && j.id === sale.id && Number(j.photos) === payload.sale.photoCount) return { ok: true };
+    return { ok: false, error: (j && j.error) || 'respuesta inesperada' };
+  } finally { clearTimeout(timer); }
+}
+
+async function syncAll(manual) {
+  if (syncing) return;
+  if (!cfg) { if (manual) toast('Falta configurar el envío'); return; }
+  const closed = (await dbAll('sales')).filter((s) => s.status === 'closed').sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  if (!closed.length) { if (manual) toast('No hay ventas pendientes'); return; }
+  syncing = true;
+  let done = 0, failed = null;
+  for (let i = 0; i < closed.length; i++) {
+    syncingId = closed[i].id;
+    syncMsg = 'Subiendo ' + (i + 1) + ' de ' + closed.length + '…';
+    softRender();
+    try {
+      const r = await postSale(closed[i]);
+      if (r.ok) {
+        const fresh = await dbGet('sales', closed[i].id);
+        fresh.status = 'uploaded'; fresh.uploadedAt = new Date().toISOString(); delete fresh.lastError;
+        await dbPut('sales', fresh);
+        done++;
+      } else {
+        failed = r.error === 'clave' ? 'La clave no coincide. Revisa la configuración.' : 'El servidor respondió: ' + r.error;
+        break;
+      }
+    } catch (e) {
+      failed = 'Sin conexión estable. Reintentará solo.';
+      break;
+    }
+  }
+  syncing = false; syncingId = null;
+  syncMsg = failed ? failed : (done ? 'Listo: ' + done + (done === 1 ? ' venta subida ✓' : ' ventas subidas ✓') : '');
+  softRender();
+}
+
+/* ---------- navegación ---------- */
+function go(v, id) { view = v; curId = id || null; closeErrors = []; closeSheet(); render(); window.scrollTo(0, 0); }
+function revokeUrls() { urls.forEach((u) => URL.revokeObjectURL(u)); urls = []; }
+function objUrl(b) { const u = URL.createObjectURL(b); urls.push(u); return u; }
+let tt;
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(tt); tt = setTimeout(() => { t.hidden = true; }, 2600); }
+
+/* ---------- iconos ---------- */
+const I = {
+  gear: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>',
+  back: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>',
+  cam: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>',
+  img: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>',
+  plus: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>'
+};
+
+/* ---------- render ---------- */
+function connLine() {
+  const on = navigator.onLine;
+  return '<div class="status"><span class="dot ' + (on ? 'on' : '') + '"></span><span>' + (on ? 'Con internet' : 'Sin internet') + (syncMsg ? ' · ' + esc(syncMsg) : '') + '</span></div>';
+}
+
+let rid = 0;
+async function render() {
+  const my = ++rid;
+  await patchQueue;
+  revokeUrls();
+  const app = $('#app');
+  let html;
+  if (view === 'home') html = await homeHTML();
+  else if (view === 'sale') html = await saleHTML();
+  else html = await settingsHTML();
+  if (my !== rid) return;
+  app.innerHTML = html;
+}
+/* Redibujos de fondo (estado de red o de envío): no tocan la pantalla si estás escribiendo. */
+function softRender() {
+  const ae = document.activeElement;
+  if (view === 'sale' && ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName) && $('#app').contains(ae)) return;
+  render();
+}
+
+async function homeHTML() {
+  const sales = (await dbAll('sales')).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const pending = sales.filter((s) => s.status === 'closed').length;
+  const drafts = sales.filter((s) => s.status === 'draft').length;
+  const today = new Date().toDateString();
+  const todaySales = sales.filter((s) => new Date(s.createdAt).toDateString() === today);
+  let nPh = 0;
+  const counts = {};
+  for (const s of sales) { counts[s.id] = await countPhotos(s.id); }
+  todaySales.forEach((s) => { nPh += counts[s.id]; });
+
+  let h = '<div class="bar"><div class="grow"><h1>Ventas feria</h1><div class="sub">Dispositivo ' + esc(await getMeta('dev')) + ' · v' + VERSION + '</div></div><button class="icon-btn" data-a="settings" aria-label="Configuración">' + I.gear + '</button></div>';
+  h += connLine();
+  h += '<div class="stack">';
+  if (!cfg) h += '<div class="banner red"><div>Falta configurar el envío. Sin esto las ventas se guardan, pero no se suben.</div><button class="btn" data-a="settings">Configurar ahora</button></div>';
+  else if (pending > 0) h += '<div class="banner red"><div>' + pending + (pending === 1 ? ' venta sin subir.' : ' ventas sin subir.') + ' Con internet y esta pantalla abierta se suben solas.</div><button class="btn" data-a="sync"' + (syncing ? ' disabled' : '') + '>' + (syncing ? 'Subiendo…' : 'Subir ahora') + '</button></div>';
+  if (drafts > 0) h += '<div class="banner"><div>' + drafts + (drafts === 1 ? ' borrador sin cerrar.' : ' borradores sin cerrar.') + ' Las ventas se suben solo al cerrarlas.</div></div>';
+  h += '<button class="btn primary" data-a="new">' + I.plus + ' Nueva venta</button>';
+  h += '</div>';
+  h += '<h2>Hoy · ' + todaySales.length + (todaySales.length === 1 ? ' venta' : ' ventas') + ' · ' + nPh + (nPh === 1 ? ' foto' : ' fotos') + '</h2>';
+  if (!sales.length) h += '<div class="card muted">Aún no hay ventas. Toca “Nueva venta” para empezar.</div>';
+  h += '<div class="stack">';
+  sales.forEach((s) => {
+    const pill = s.status === 'draft' ? '<span class="pill draft">Borrador</span>' : s.status === 'closed' ? '<span class="pill closed">' + (syncingId === s.id ? 'Subiendo…' : 'Sin subir') + '</span>' : '<span class="pill up">Subida ✓</span>';
+    const act = s.action === 'stock_boleta' ? 'Stock + boleta' : s.action === 'stock' ? 'Solo stock' : 'Sin decidir';
+    h += '<button class="card sale" data-a="open" data-id="' + esc(s.id) + '"><span class="num">' + saleLabel(s) + '</span><span class="meta"><b>' + counts[s.id] + (counts[s.id] === 1 ? ' foto' : ' fotos') + '</b> · ' + act + '<br>' + dmy(s.createdAt) + ' ' + hhmm(s.createdAt) + '</span>' + pill + '</button>';
+  });
+  h += '</div>';
+  return h;
+}
+
+async function saleHTML() {
+  const sale = await dbGet('sales', curId);
+  if (!sale) { view = 'home'; return homeHTML(); }
+  const photos = await photosOf(sale.id);
+  const draft = sale.status === 'draft';
+  const pill = draft ? '<span class="pill draft">Borrador</span>' : sale.status === 'closed' ? '<span class="pill closed">Sin subir</span>' : '<span class="pill up">Subida ✓</span>';
+  let h = '<div class="bar"><button class="icon-btn" data-a="home" aria-label="Volver">' + I.back + '</button><div class="grow"><h1>Venta ' + saleLabel(sale) + '</h1><div class="sub">' + esc(sale.id) + '</div></div>' + pill + '</div>';
+  h += connLine();
+
+  if (draft) {
+    h += '<div class="row"><label class="btn primary">' + I.cam + ' Tomar foto<input class="sr" id="in-cam" type="file" accept="image/*" capture="environment"></label>';
+    h += '<label class="btn">' + I.img + ' Galería<input class="sr" id="in-gal" type="file" accept="image/*" multiple></label></div>';
+    if (busy) h += '<div class="banner info" style="margin-top:10px">' + esc(busy) + '</div>';
+  }
+  h += '<div class="counter">' + photos.length + (photos.length === 1 ? ' foto = 1 unidad' : ' fotos = ' + photos.length + ' unidades') + '</div>';
+  if (photos.length) {
+    h += '<div class="grid" style="margin-top:10px">';
+    photos.forEach((p, i) => {
+      h += '<button class="thumb" data-a="photo" data-id="' + esc(p.id) + '" aria-label="Foto ' + (i + 1) + '"><img alt="Foto ' + (i + 1) + '" src="' + objUrl(p.blob) + '"><span class="n">' + (i + 1) + '</span>' + (p.discount ? '<span class="d">−' + esc(fmtDisc(p.discount)) + '</span>' : '') + '</button>';
+    });
+    h += '</div>';
+  } else if (draft) h += '<div class="card muted" style="margin-top:10px">Una foto por cada unidad vendida. Dos fotos del mismo juego son dos unidades.</div>';
+
+  if (draft) {
+    h += '<h2>Descuento</h2><div class="stack"><div style="font-weight:700">¿Agregas descuento a esta venta?</div>';
+    h += '<div class="seg"><button data-a="disc" data-v="no" aria-pressed="' + (sale.disc === 'no') + '">No</button><button data-a="disc" data-v="si" aria-pressed="' + (sale.disc === 'si') + '">Sí</button></div>';
+    if (sale.disc === 'si') {
+      const sd = sale.saleDiscount || { type: 'pct', value: '' };
+      h += '<div class="card stack"><div class="muted">Descuento a toda la venta (opcional). Para un juego específico, toca su foto y ponlo ahí.</div>';
+      h += '<div class="seg"><button data-a="sdtype" data-v="pct" aria-pressed="' + (sd.type === 'pct') + '">Porcentaje %</button><button data-a="sdtype" data-v="amt" aria-pressed="' + (sd.type === 'amt') + '">Monto $</button></div>';
+      h += '<label class="f">Valor<input type="number" inputmode="numeric" min="0" id="f-sd" value="' + esc(sd.value) + '" placeholder="' + (sd.type === 'pct' ? 'Ej. 10' : 'Ej. 2000') + '"></label></div>';
+    }
+    h += '</div>';
+
+    h += '<h2>¿Qué hago con esta venta?</h2><div class="stack">';
+    h += '<button class="choice" data-a="action" data-v="stock" aria-pressed="' + (sale.action === 'stock') + '"><b>Solo rebajar stock</b><span>La boleta ya la emití yo en Openfactura.</span></button>';
+    h += '<button class="choice" data-a="action" data-v="stock_boleta" aria-pressed="' + (sale.action === 'stock_boleta') + '"><b>Rebajar stock y emitir boleta</b><span>Claude emite la boleta en Openfactura.</span></button></div>';
+
+    h += '<h2>Datos opcionales</h2><details class="opt"' + (sale.pay || sale.total || sale.boleta || sale.note ? ' open' : '') + '><summary>Pago, total y boleta</summary><div class="stack">';
+    h += '<label class="f">Medio de pago<select id="f-pay"><option value="">—</option>' + ['Efectivo', 'Débito', 'Crédito', 'Transferencia', 'Otro'].map((o) => '<option' + (sale.pay === o ? ' selected' : '') + '>' + o + '</option>').join('') + '</select></label>';
+    h += '<label class="f">Total cobrado ($)<input type="number" inputmode="numeric" id="f-total" value="' + esc(sale.total) + '"></label>';
+    h += '<label class="f">N° de boleta<input type="text" inputmode="numeric" id="f-boleta" value="' + esc(sale.boleta) + '"></label>';
+    h += '<label class="f">Nota<textarea id="f-note">' + esc(sale.note) + '</textarea></label></div></details>';
+
+    if (closeErrors.length) h += '<div class="errors" style="margin-top:14px">Falta para cerrar:<ul>' + closeErrors.map((e) => '<li>' + esc(e) + '</li>').join('') + '</ul></div>';
+    h += '<div class="stack" style="margin-top:16px"><button class="btn primary" data-a="close">Cerrar venta</button><button class="btn ghost danger" data-a="delsale">Eliminar borrador</button></div>';
+  } else {
+    h += '<h2>Resumen</h2><dl class="card kv">';
+    h += '<dt>Acción</dt><dd>' + (sale.action === 'stock_boleta' ? 'Rebajar stock y emitir boleta' : 'Solo rebajar stock') + '</dd>';
+    h += '<dt>Descuento venta</dt><dd>' + (sale.saleDiscount ? esc(fmtDisc(sale.saleDiscount)) : 'Ninguno') + '</dd>';
+    if (sale.pay) h += '<dt>Pago</dt><dd>' + esc(sale.pay) + '</dd>';
+    if (sale.total) h += '<dt>Total cobrado</dt><dd>' + esc(money(sale.total)) + '</dd>';
+    if (sale.boleta) h += '<dt>N° boleta</dt><dd>' + esc(sale.boleta) + '</dd>';
+    if (sale.note) h += '<dt>Nota</dt><dd>' + esc(sale.note) + '</dd>';
+    h += '<dt>Cerrada</dt><dd>' + dmy(sale.closedAt || sale.createdAt) + ' ' + hhmm(sale.closedAt || sale.createdAt) + '</dd>';
+    if (sale.uploadedAt) h += '<dt>Subida</dt><dd>' + dmy(sale.uploadedAt) + ' ' + hhmm(sale.uploadedAt) + '</dd>';
+    h += '</dl>';
+    if (sale.status === 'closed') {
+      h += '<div class="stack" style="margin-top:14px"><button class="btn primary" data-a="sync"' + (syncing ? ' disabled' : '') + '>' + (syncing ? 'Subiendo…' : 'Subir ahora') + '</button>';
+      h += '<button class="btn" data-a="reopen"' + (syncingId === sale.id ? ' disabled' : '') + '>Reabrir para editar</button>';
+      h += '<button class="btn ghost danger" data-a="delsale"' + (syncingId === sale.id ? ' disabled' : '') + '>Eliminar venta</button></div>';
+    }
+  }
+  return h;
+}
+
+async function settingsHTML() {
+  if (navigator.storage && navigator.storage.persisted) { try { storagePersisted = await navigator.storage.persisted(); } catch (e) {} }
+  const dev = await getMeta('dev');
+  let h = '<div class="bar"><button class="icon-btn" data-a="home" aria-label="Volver">' + I.back + '</button><div class="grow"><h1>Configuración</h1><div class="sub">Dispositivo ' + esc(dev) + ' · v' + VERSION + '</div></div></div>';
+  h += '<h2>Envío automático</h2><div class="stack">';
+  h += '<div class="card stack"><div class="muted">' + (cfg ? 'Configurado. Para cambiarlo, pega otro código o edita los campos.' : 'Pega el código que te dio Claude.') + '</div>';
+  h += '<label class="f">Código de configuración<textarea id="f-code" placeholder="Pega aquí el código completo"></textarea></label>';
+  h += '<button class="btn" data-a="applycode">Usar este código</button></div>';
+  h += '<details class="opt"><summary>Escribir los datos a mano</summary><div class="stack">';
+  h += '<label class="f">Dirección del script<input type="url" id="f-url" value="' + esc(cfg ? cfg.u : '') + '" placeholder="https://script.google.com/macros/s/…/exec"></label>';
+  h += '<label class="f">Clave<input type="password" id="f-key" value="' + esc(cfg ? cfg.k : '') + '"></label>';
+  h += '<button class="btn" data-a="savecfg">Guardar</button></div></details>';
+  h += '<button class="btn" data-a="ping"' + (cfg ? '' : ' disabled') + '>Probar conexión</button>';
+  h += '<div class="muted" id="ping-out"></div></div>';
+  h += '<h2>Datos en este celular</h2><div class="stack">';
+  h += '<div class="card muted">Almacenamiento protegido: ' + (storagePersisted === true ? 'sí' : storagePersisted === false ? 'no confirmado' : 'sin información') + '.</div>';
+  h += '<button class="btn" data-a="backup">Descargar respaldo de ventas sin subir</button>';
+  h += '<button class="btn" data-a="purge">Borrar fotos de ventas ya subidas</button></div>';
+  return h;
+}
+
+/* ---------- hoja de foto ---------- */
+function closeSheet() { const s = $('#sheet'); s.hidden = true; s.innerHTML = ''; }
+async function openPhoto(pid) {
+  const p = await dbGet('photos', pid);
+  if (!p) return;
+  const sale = await dbGet('sales', p.saleId);
+  const all = await photosOf(p.saleId);
+  const idx = all.findIndex((x) => x.id === pid) + 1;
+  const draft = sale.status === 'draft';
+  const d = p.discount || { type: 'pct', value: '' };
+  const s = $('#sheet');
+  const u = URL.createObjectURL(p.blob);
+  let h = '<div class="sheet-back" data-a="sheetclose"><div class="sheet" data-keep="1" data-pid="' + esc(pid) + '"><div class="bar"><div class="grow"><h1>Foto ' + idx + ' de ' + all.length + '</h1></div><button class="icon-btn" data-a="sheetclose" aria-label="Cerrar">' + I.back + '</button></div>';
+  h += '<img alt="Foto ' + idx + '" src="' + u + '">';
+  if (draft) {
+    h += '<div class="stack" style="margin-top:14px"><div style="font-weight:700">Descuento solo para este juego</div>';
+    h += '<div class="seg"><button data-a="pdtype" data-v="pct" aria-pressed="' + (d.type === 'pct') + '">Porcentaje %</button><button data-a="pdtype" data-v="amt" aria-pressed="' + (d.type === 'amt') + '">Monto $</button></div>';
+    h += '<input type="number" inputmode="numeric" min="0" id="f-pd" value="' + esc(d.value) + '" placeholder="Sin descuento">';
+    h += '<button class="btn primary" data-a="pdsave">Guardar</button>';
+    h += '<button class="btn danger" data-a="pdel" data-armed="0">Eliminar esta foto</button></div>';
+  } else if (p.discount) h += '<div class="card" style="margin-top:14px"><b>Descuento:</b> ' + esc(fmtDisc(p.discount)) + '</div>';
+  h += '</div></div>';
+  s.innerHTML = h;
+  s.hidden = false;
+  s.dataset.url = u;
+  s.dataset.dtype = d.type;
+}
+
+/* ---------- eventos ---------- */
+let saveT;
+/* Todas las ediciones del borrador pasan por una cola, así no se pisan entre sí. */
+let patchQueue = Promise.resolve();
+function patchSale(patch) {
+  const id = curId;
+  patchQueue = patchQueue.then(async () => {
+    const s = await dbGet('sales', id);
+    if (!s || s.status !== 'draft') return;
+    Object.assign(s, typeof patch === 'function' ? patch(s) : patch);
+    await dbPut('sales', s);
+  }).catch(() => {});
+  return patchQueue;
+}
+/* Guarda lo que haya escrito en los campos antes de cualquier acción. */
+async function flushFields() {
+  if (view !== 'sale') return;
+  const g = (id) => document.getElementById(id);
+  const patch = {};
+  if (g('f-pay')) patch.pay = g('f-pay').value;
+  if (g('f-total')) patch.total = g('f-total').value;
+  if (g('f-boleta')) patch.boleta = g('f-boleta').value;
+  if (g('f-note')) patch.note = g('f-note').value;
+  const sd = g('f-sd');
+  if (sd) { const val = sd.value; await patchSale((s) => ({ saleDiscount: { type: (s.saleDiscount || { type: 'pct' }).type, value: val } })); }
+  if (Object.keys(patch).length) await patchSale(patch);
+}
+
+document.addEventListener('click', async (ev) => {
+  const el = ev.target.closest('[data-a]');
+  if (!el) return;
+  const a = el.dataset.a;
+  const v = el.dataset.v;
+  const sheetEl = $('#sheet');
+  if (sheetEl.hidden && view === 'sale') await flushFields();
+  if (a === 'sheetclose') {
+    if (ev.target.closest('.sheet') && !ev.target.closest('button[data-a="sheetclose"]')) return;
+    if (sheetEl.dataset.url) URL.revokeObjectURL(sheetEl.dataset.url);
+    closeSheet(); return;
+  }
+  if (a === 'home') return go('home');
+  if (a === 'settings') return go('settings');
+  if (a === 'new') { const s = await newSale(); return go('sale', s.id); }
+  if (a === 'open') return go('sale', el.dataset.id);
+  if (a === 'sync') return syncAll(true);
+  if (a === 'photo') return openPhoto(el.dataset.id);
+
+  if (a === 'disc') { await patchSale((s) => ({ disc: v, saleDiscount: v === 'no' ? null : s.saleDiscount })); return render(); }
+  if (a === 'sdtype') { await patchSale((s) => ({ saleDiscount: { type: v, value: (s.saleDiscount || { value: '' }).value } })); return render(); }
+  if (a === 'action') { await patchSale({ action: v }); return render(); }
+
+  if (a === 'close') {
+    const sale = await dbGet('sales', curId);
+    const photos = await photosOf(sale.id);
+    closeErrors = validate(sale, photos);
+    if (closeErrors.length) { render(); window.scrollTo(0, document.body.scrollHeight); return; }
+    sale.status = 'closed'; sale.closedAt = new Date().toISOString();
+    if (sale.saleDiscount && !String(sale.saleDiscount.value).trim()) sale.saleDiscount = null;
+    await dbPut('sales', sale);
+    toast('Venta cerrada');
+    go('home');
+    syncAll(false);
+    return;
+  }
+  if (a === 'reopen') {
+    if (syncing) return toast('Espera a que termine la subida');
+    const s = await dbGet('sales', curId); if (s.status === 'closed') { s.status = 'draft'; await dbPut('sales', s); } return render();
+  }
+  if (a === 'delsale') {
+    if (syncing) return toast('Espera a que termine la subida');
+    if (el.dataset.armed !== '1') { el.dataset.armed = '1'; el.textContent = 'Toca otra vez para eliminar'; return; }
+    const ph = await photosOf(curId);
+    for (const p of ph) await dbDel('photos', p.id);
+    await dbDel('sales', curId);
+    toast('Venta eliminada');
+    return go('home');
+  }
+
+  if (a === 'pdtype') {
+    sheetEl.dataset.dtype = v;
+    sheetEl.querySelectorAll('[data-a="pdtype"]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === v)));
+    return;
+  }
+  if (a === 'pdsave') {
+    const pid = sheetEl.querySelector('.sheet').dataset.pid;
+    const p = await dbGet('photos', pid);
+    const val = $('#f-pd').value.trim();
+    const type = sheetEl.dataset.dtype || 'pct';
+    if (val === '' || Number(val) <= 0) p.discount = null;
+    else if (type === 'pct' && Number(val) > 100) { toast('El porcentaje no puede pasar de 100'); return; }
+    else p.discount = { type, value: String(Math.round(Number(val))) };
+    await dbPut('photos', p);
+    URL.revokeObjectURL(sheetEl.dataset.url);
+    closeSheet(); render(); return;
+  }
+  if (a === 'pdel') {
+    if (el.dataset.armed !== '1') { el.dataset.armed = '1'; el.textContent = 'Toca otra vez para eliminar'; return; }
+    const pid = sheetEl.querySelector('.sheet').dataset.pid;
+    await dbDel('photos', pid);
+    URL.revokeObjectURL(sheetEl.dataset.url);
+    closeSheet(); render(); return;
+  }
+
+  if (a === 'applycode') {
+    const p = parseCode($('#f-code').value);
+    if (!p) return toast('No reconozco ese código');
+    await saveCfg(p.u, p.k); toast('Configuración guardada'); render(); syncAll(false); return;
+  }
+  if (a === 'savecfg') {
+    const u = $('#f-url').value, k = $('#f-key').value;
+    if (!/^https:\/\/script\.google\.com\/.+\/exec$/.test(u.trim()) || !k.trim()) return toast('Revisa la dirección y la clave');
+    await saveCfg(u, k); toast('Configuración guardada'); render(); syncAll(false); return;
+  }
+  if (a === 'ping') {
+    const out = $('#ping-out'); out.textContent = 'Probando…';
+    try {
+      const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 20000);
+      const r = await fetch(cfg.u + (cfg.u.includes('?') ? '&' : '?') + 'ping=1&k=' + encodeURIComponent(cfg.k), { redirect: 'follow', signal: ctl.signal });
+      clearTimeout(t);
+      const j = await r.json();
+      out.textContent = j.ok ? 'Conexión correcta ✓' : (j.error === 'clave' ? 'El script responde, pero la clave no coincide.' : 'El script respondió con un error.');
+    } catch (e) { out.textContent = 'No se pudo conectar. ¿Hay internet?'; }
+    return;
+  }
+  if (a === 'backup') return backup();
+  if (a === 'purge') {
+    const ups = (await dbAll('sales')).filter((s) => s.status === 'uploaded');
+    let n = 0;
+    for (const s of ups) { for (const p of await photosOf(s.id)) { await dbDel('photos', p.id); n++; } }
+    return toast(n + ' fotos borradas de este celular');
+  }
+});
+
+document.addEventListener('change', async (ev) => {
+  const t = ev.target;
+  if (t.id === 'in-cam' || t.id === 'in-gal') { const files = Array.from(t.files); t.value = ''; await addFiles(files); return; }
+  if (view !== 'sale') return;
+  if (['f-pay', 'f-total', 'f-boleta', 'f-note', 'f-sd'].includes(t.id)) await flushFields();
+});
+document.addEventListener('input', (ev) => {
+  const t = ev.target;
+  if (view !== 'sale') return;
+  clearTimeout(saveT);
+  saveT = setTimeout(() => { t.dispatchEvent(new Event('change', { bubbles: true })); }, 500);
+});
+
+async function backup() {
+  const sales = (await dbAll('sales')).filter((s) => s.status !== 'uploaded');
+  if (!sales.length) return toast('No hay ventas sin subir');
+  const out = [];
+  for (const s of sales) {
+    const ph = await photosOf(s.id);
+    out.push({ sale: s, photos: await Promise.all(ph.map(async (p, i) => ({ n: i + 1, discount: p.discount, data: await blobToB64(p.blob) }))) });
+  }
+  const d = new Date();
+  const name = 'ventas-respaldo-' + d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) + '-' + pad(d.getHours()) + pad(d.getMinutes()) + '.json';
+  const url = URL.createObjectURL(new Blob([JSON.stringify(out)], { type: 'application/json' }));
+  const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
+  toast('Respaldo generado');
+}
+
+/* ---------- arranque ---------- */
+let pendingTimer;
+function schedule() {
+  clearInterval(pendingTimer);
+  pendingTimer = setInterval(async () => {
+    if (document.visibilityState !== 'visible' || syncing || !cfg || !navigator.onLine) return;
+    const any = (await dbAll('sales')).some((s) => s.status === 'closed');
+    if (any) syncAll(false);
+  }, 20000);
+}
+window.addEventListener('online', () => { softRender(); syncAll(false); });
+window.addEventListener('offline', () => { softRender(); });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { softRender(); syncAll(false); } });
+
+(async function init() {
+  try {
+    db = await openDB();
+  } catch (e) {
+    $('#app').innerHTML = '<div class="errors" style="margin-top:20px">Este navegador no permite guardar datos. Ábrela en una ventana normal, no privada.</div>';
+    return;
+  }
+  let dev = await getMeta('dev');
+  if (!dev) { dev = rand(3); await setMeta('dev', dev); }
+  await loadCfg();
+  await readHashCfg();
+  if (navigator.storage && navigator.storage.persist) { try { storagePersisted = await navigator.storage.persist(); } catch (e) {} }
+  if ('serviceWorker' in navigator) { try { await navigator.serviceWorker.register('sw.js'); } catch (e) {} }
+  await render();
+  schedule();
+  syncAll(false);
+})();
+})();
+</script>
+</body>
+</html>
