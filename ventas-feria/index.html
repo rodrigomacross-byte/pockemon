@@ -99,6 +99,15 @@ button, .btn { font: inherit; }
 .thumb { position: relative; aspect-ratio: 1; border-radius: 12px; overflow: hidden; background: var(--line); border: 1px solid var(--line); padding: 0; cursor: pointer; }
 .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .thumb .n { position: absolute; left: 6px; top: 6px; background: rgba(0,0,0,.65); color: #fff; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
+.thumb .g { position: absolute; right: 0; left: 0; bottom: 0; background: rgba(0,0,0,.72); color: #fff; font-size: 11px; font-weight: 700; padding: 3px 6px; text-align: right; }
+.thumb .g.none { background: var(--warn-bg); color: var(--warn); text-align: center; }
+.thumb .d { bottom: 26px !important; }
+.gres { display: flex; justify-content: space-between; gap: 10px; width: 100%; text-align: left; padding: 12px; min-height: 48px; border: 1px solid var(--line); background: var(--card); color: var(--fg); border-radius: 12px; cursor: pointer; }
+.gres .gt { font-weight: 600; min-width: 0; }
+.gres .gp { white-space: nowrap; font-weight: 800; }
+.tot { display: grid; gap: 4px; }
+.tot .l { display: flex; justify-content: space-between; gap: 10px; font-size: 14px; }
+.tot .l.big { font-size: 20px; font-weight: 800; border-top: 1px solid var(--line); padding-top: 8px; margin-top: 4px; }
 .thumb .d { position: absolute; left: 6px; bottom: 6px; background: var(--warn-bg); color: var(--warn); font-size: 12px; font-weight: 800; padding: 2px 8px; border-radius: 999px; }
 .counter { font-size: 15px; font-weight: 700; margin: 10px 0 0; }
 .seg { display: flex; gap: 8px; }
@@ -140,7 +149,7 @@ details.opt .stack { padding: 4px 0 14px; }
 (() => {
 'use strict';
 
-const VERSION = '1.1';
+const VERSION = '1.2';
 const MAX_SIDE = 1024;
 const JPEG_Q = 0.65;
 const $ = (s, r = document) => r.querySelector(s);
@@ -151,6 +160,26 @@ const money = (v) => '$' + Number(v).toLocaleString('es-CL');
 const hhmm = (iso) => { const d = new Date(iso); return pad(d.getHours()) + ':' + pad(d.getMinutes()); };
 const dmy = (iso) => { const d = new Date(iso); return pad(d.getDate()) + '/' + pad(d.getMonth() + 1); };
 const fmtDisc = (d) => !d ? '' : (d.type === 'pct' ? d.value + '%' : money(d.value));
+const norm = (x) => String(x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+const shortName = (t) => String(t || '').split(/\s[–-]\s/)[0].trim();
+/* Precio con IVA de cada foto con su descuento; redondeo hacia abajo. */
+function applyDisc(price, d) {
+  if (!d || !String(d.value).trim()) return price;
+  const v = Number(d.value);
+  if (!(v > 0)) return price;
+  return d.type === 'pct' ? Math.floor(price * (100 - Math.min(v, 100)) / 100) : Math.max(0, price - v);
+}
+function calc(sale, photos) {
+  let sub = 0, missing = 0;
+  const lines = photos.map((p) => {
+    if (!p.game) { missing++; return { p, net: null }; }
+    const net = applyDisc(Number(p.game.p) || 0, p.discount);
+    sub += net;
+    return { p, net };
+  });
+  const total = applyDisc(sub, sale.saleDiscount);
+  return { lines, sub, total, missing, count: photos.length };
+}
 
 /* ---------- IndexedDB ---------- */
 let db;
@@ -308,10 +337,10 @@ async function buildPayload(sale) {
   const photos = await photosOf(sale.id);
   const out = [];
   for (let i = 0; i < photos.length; i++) {
-    out.push({ n: i + 1, discount: photos[i].discount || null, mime: 'image/jpeg', data: await blobToB64(photos[i].blob) });
+    out.push({ n: i + 1, discount: photos[i].discount || null, game: photos[i].game || null, mime: 'image/jpeg', data: await blobToB64(photos[i].blob) });
   }
   const { id, dev, seq, createdAt, closedAt, disc, saleDiscount, action, pay, total, boleta, note } = sale;
-  return { key: cfg.k, action: 'sale', sale: { id, dev, seq, createdAt, closedAt, disc, saleDiscount, action, pay, total, boleta, note, photoCount: photos.length }, photos: out };
+  return { key: cfg.k, action: 'sale', sale: { id, dev, seq, createdAt, closedAt, disc, saleDiscount, action, pay, total, boleta, note, est: sale.est || '', photoCount: photos.length }, photos: out };
 }
 
 async function postSale(sale) {
@@ -357,6 +386,41 @@ async function syncAll(manual) {
   syncMsg = failed ? failed : (done ? 'Listo: ' + done + (done === 1 ? ' venta subida ✓' : ' ventas subidas ✓') : '');
   softRender();
 }
+
+/* ---------- catálogo ---------- */
+let catalog = null;          // { at, items: [{t,s,p,a}] }
+let catBusy = false;
+async function loadCatalog() { try { catalog = (await getMeta('catalog')) || null; } catch (e) { catalog = null; } }
+async function refreshCatalog(manual) {
+  if (catBusy || !cfg || !navigator.onLine) { if (manual) toast(cfg ? 'Sin internet' : 'Falta configurar el envío'); return; }
+  if (!manual && catalog && Date.now() - new Date(catalog.at).getTime() < 10 * 60 * 1000) return;
+  catBusy = true;
+  try {
+    const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 45000);
+    const r = await fetch(cfg.u + (cfg.u.includes('?') ? '&' : '?') + 'catalog=1&k=' + encodeURIComponent(cfg.k), { redirect: 'follow', signal: ctl.signal });
+    clearTimeout(t);
+    const j = await r.json();
+    if (j && j.ok && Array.isArray(j.items) && j.items.length) {
+      catalog = { at: new Date().toISOString(), items: j.items };
+      await setMeta('catalog', catalog);
+      if (manual) toast('Catálogo actualizado: ' + j.items.length + ' productos');
+    } else if (manual) toast(j && j.error === 'clave' ? 'La clave no coincide' : 'El script no entregó el catálogo (¿falta actualizarlo?)');
+  } catch (e) { if (manual) toast('No se pudo descargar el catálogo'); }
+  finally { catBusy = false; if (view === 'settings' || view === 'sale') softRender(); }
+}
+function searchCatalog(q) {
+  if (!catalog) return [];
+  const words = norm(q).split(' ').filter(Boolean);
+  if (!words.length) return [];
+  const out = [];
+  for (const it of catalog.items) {
+    const hay = it._n || (it._n = norm(it.t + ' ' + (it.s || '')));
+    if (words.every((w) => hay.includes(w))) out.push(it);
+    if (out.length >= 30) break;
+  }
+  return out;
+}
+const resHTML = (list) => list.length ? list.map((it) => '<button class="gres" data-a="pickgame" data-sku="' + esc(it.s || '') + '" data-t="' + esc(it.t) + '" data-p="' + esc(it.p) + '"><span class="gt">' + esc(shortName(it.t)) + '</span><span class="gp">' + esc(money(it.p)) + (it.a === false ? ' · agotado' : '') + '</span></button>').join('') : '<div class="muted">Sin resultados.</div>';
 
 /* ---------- navegación ---------- */
 function go(v, id) { view = v; curId = id || null; closeErrors = []; closeSheet(); render(); window.scrollTo(0, 0); }
@@ -431,6 +495,19 @@ async function homeHTML() {
   return h;
 }
 
+function totalsHTML(sale, photos, draft) {
+  const c = calc(sale, photos);
+  let h = '<h2>Cobro</h2><div class="card tot">';
+  c.lines.forEach((l, i) => {
+    const name = l.p.game ? shortName(l.p.game.t) : 'Foto ' + (i + 1) + ': sin juego elegido';
+    h += '<div class="l"><span>' + esc(name) + (l.p.discount ? ' (−' + esc(fmtDisc(l.p.discount)) + ')' : '') + '</span><span>' + (l.net == null ? '—' : esc(money(l.net))) + '</span></div>';
+  });
+  if (sale.saleDiscount && String(sale.saleDiscount.value).trim() && c.missing === 0) h += '<div class="l"><span>Subtotal</span><span>' + esc(money(c.sub)) + '</span></div><div class="l"><span>Descuento venta</span><span>−' + esc(fmtDisc(sale.saleDiscount)) + '</span></div>';
+  if (c.missing) h += '<div class="muted">Toca cada foto y elige el juego para calcular el total' + (catalog ? '.' : ' (el catálogo se descarga con internet, en Configuración).') + '</div>';
+  else h += '<div class="l big"><span>Total con IVA</span><span>' + esc(money(c.total)) + '</span></div>';
+  return h + '</div>';
+}
+
 async function saleHTML() {
   const sale = await dbGet('sales', curId);
   if (!sale) { view = 'home'; return homeHTML(); }
@@ -449,9 +526,10 @@ async function saleHTML() {
   if (photos.length) {
     h += '<div class="grid" style="margin-top:10px">';
     photos.forEach((p, i) => {
-      h += '<button class="thumb" data-a="photo" data-id="' + esc(p.id) + '" aria-label="Foto ' + (i + 1) + '"><img alt="Foto ' + (i + 1) + '" src="' + objUrl(p.blob) + '"><span class="n">' + (i + 1) + '</span>' + (p.discount ? '<span class="d">−' + esc(fmtDisc(p.discount)) + '</span>' : '') + '</button>';
+      h += '<button class="thumb" data-a="photo" data-id="' + esc(p.id) + '" aria-label="Foto ' + (i + 1) + '"><img alt="Foto ' + (i + 1) + '" src="' + objUrl(p.blob) + '"><span class="n">' + (i + 1) + '</span>' + (p.discount ? '<span class="d">−' + esc(fmtDisc(p.discount)) + '</span>' : '') + (p.game ? '<span class="g">' + esc(money(p.game.p)) + '</span>' : '<span class="g none">elegir juego</span>') + '</button>';
     });
     h += '</div>';
+    h += totalsHTML(sale, photos, draft);
   } else if (draft) h += '<div class="card muted" style="margin-top:10px">Una foto por cada unidad vendida. Dos fotos del mismo juego son dos unidades.</div>';
 
   if (draft) {
@@ -478,6 +556,7 @@ async function saleHTML() {
     if (closeErrors.length) h += '<div class="errors" style="margin-top:14px">Falta para cerrar:<ul>' + closeErrors.map((e) => '<li>' + esc(e) + '</li>').join('') + '</ul></div>';
     h += '<div class="stack" style="margin-top:16px"><button class="btn primary" data-a="close">Cerrar venta</button><button class="btn ghost danger" data-a="delsale">Eliminar borrador</button></div>';
   } else {
+    h += totalsHTML(sale, photos, false);
     h += '<h2>Resumen</h2><dl class="card kv">';
     h += '<dt>Acción</dt><dd>' + (sale.action === 'stock_boleta' ? 'Rebajar stock y emitir boleta' : 'Solo rebajar stock') + '</dd>';
     h += '<dt>Descuento venta</dt><dd>' + (sale.saleDiscount ? esc(fmtDisc(sale.saleDiscount)) : 'Ninguno') + '</dd>';
@@ -511,6 +590,7 @@ async function settingsHTML() {
   h += '<button class="btn" data-a="savecfg">Guardar</button></div></details>';
   h += '<button class="btn" data-a="ping"' + (cfg ? '' : ' disabled') + '>Probar conexión</button>';
   h += '<div class="muted" id="ping-out"></div></div>';
+  h += '<h2>Catálogo de juegos</h2><div class="stack"><div class="card muted">' + (catalog ? catalog.items.length + ' productos · descargado el ' + dmy(catalog.at) + ' ' + hhmm(catalog.at) : 'Sin catálogo. Descárgalo con internet.') + '</div><button class="btn" data-a="catupd"' + (cfg ? '' : ' disabled') + '>Actualizar catálogo</button></div>';
   h += '<h2>Datos en este celular</h2><div class="stack">';
   h += '<div class="card muted">Almacenamiento protegido: ' + (storagePersisted === true ? 'sí' : storagePersisted === false ? 'no confirmado' : 'sin información') + '.</div>';
   h += '<button class="btn" data-a="backup">Descargar respaldo de ventas sin subir</button>';
@@ -532,6 +612,15 @@ async function openPhoto(pid) {
   const u = URL.createObjectURL(p.blob);
   let h = '<div class="sheet-back" data-a="sheetclose"><div class="sheet" data-keep="1" data-pid="' + esc(pid) + '"><div class="bar"><div class="grow"><h1>Foto ' + idx + ' de ' + all.length + '</h1></div><button class="icon-btn" data-a="sheetclose" aria-label="Cerrar">' + I.back + '</button></div>';
   h += '<img alt="Foto ' + idx + '" src="' + u + '">';
+  if (draft) {
+    h += '<div class="stack" style="margin-top:14px"><div style="font-weight:700">Juego</div>';
+    if (p.game) h += '<div class="card"><b>' + esc(shortName(p.game.t)) + '</b><div class="muted">' + esc(p.game.s || 'sin SKU') + ' · ' + esc(money(p.game.p)) + ' con IVA</div><button class="btn small" style="margin-top:8px" data-a="cleargame">Cambiar juego</button></div>';
+    else {
+      h += catalog ? '<input type="search" id="f-gs" placeholder="Buscar por nombre o SKU" autocomplete="off" autocapitalize="off"><div class="stack" id="gs-res"><div class="muted">Escribe para buscar. Catálogo del ' + dmy(catalog.at) + ' ' + hhmm(catalog.at) + '.</div></div>'
+        : '<div class="card muted">Aún no hay catálogo en este celular. Conéctate a internet y abre Configuración → Actualizar catálogo.</div>';
+    }
+    h += '</div>';
+  }
   if (draft) {
     h += '<div class="stack" style="margin-top:14px"><div style="font-weight:700">Descuento solo para este juego</div>';
     h += '<div class="seg"><button data-a="pdtype" data-v="pct" aria-pressed="' + (d.type === 'pct') + '">Porcentaje %</button><button data-a="pdtype" data-v="amt" aria-pressed="' + (d.type === 'amt') + '">Monto $</button></div>';
@@ -592,6 +681,15 @@ document.addEventListener('click', async (ev) => {
   if (a === 'open') return go('sale', el.dataset.id);
   if (a === 'sync') return syncAll(true);
   if (a === 'photo') return openPhoto(el.dataset.id);
+  if (a === 'pickgame' || a === 'cleargame') {
+    const pid = sheetEl.querySelector('.sheet').dataset.pid;
+    const ph = await dbGet('photos', pid);
+    ph.game = a === 'cleargame' ? null : { t: el.dataset.t, s: el.dataset.sku, p: Number(el.dataset.p) };
+    await dbPut('photos', ph);
+    if (a === 'cleargame') { URL.revokeObjectURL(sheetEl.dataset.url); closeSheet(); await openPhoto(pid); render(); return; }
+    URL.revokeObjectURL(sheetEl.dataset.url); closeSheet(); render(); return;
+  }
+  if (a === 'catupd') { await refreshCatalog(true); return render(); }
 
   if (a === 'disc') { await patchSale((s) => ({ disc: v, saleDiscount: v === 'no' ? null : s.saleDiscount })); return render(); }
   if (a === 'sdtype') { await patchSale((s) => ({ saleDiscount: { type: v, value: (s.saleDiscount || { value: '' }).value } })); return render(); }
@@ -604,6 +702,8 @@ document.addEventListener('click', async (ev) => {
     if (closeErrors.length) { render(); window.scrollTo(0, document.body.scrollHeight); return; }
     sale.status = 'closed'; sale.closedAt = new Date().toISOString();
     if (sale.saleDiscount && !String(sale.saleDiscount.value).trim()) sale.saleDiscount = null;
+    const cc = calc(sale, photos);
+    if (!cc.missing && cc.count) { sale.est = cc.total; if (!String(sale.total || '').trim()) sale.total = String(cc.total); }
     await dbPut('sales', sale);
     toast('Venta cerrada');
     go('home');
@@ -652,12 +752,12 @@ document.addEventListener('click', async (ev) => {
   if (a === 'applycode') {
     const p = parseCode($('#f-code').value);
     if (!p) return toast('No reconozco ese código');
-    await saveCfg(p.u, p.k); toast('Configuración guardada'); render(); syncAll(false); return;
+    await saveCfg(p.u, p.k); toast('Configuración guardada'); render(); syncAll(false); refreshCatalog(false); return;
   }
   if (a === 'savecfg') {
     const u = $('#f-url').value, k = $('#f-key').value;
     if (!/^https:\/\/script\.google\.com\/.+\/exec$/.test(u.trim()) || !k.trim()) return toast('Revisa la dirección y la clave');
-    await saveCfg(u, k); toast('Configuración guardada'); render(); syncAll(false); return;
+    await saveCfg(u, k); toast('Configuración guardada'); render(); syncAll(false); refreshCatalog(false); return;
   }
   if (a === 'ping') {
     const out = $('#ping-out'); out.textContent = 'Probando…';
@@ -687,6 +787,7 @@ document.addEventListener('change', async (ev) => {
 });
 document.addEventListener('input', (ev) => {
   const t = ev.target;
+  if (t.id === 'f-gs') { const box = document.getElementById('gs-res'); if (box) box.innerHTML = t.value.trim() ? resHTML(searchCatalog(t.value)) : '<div class="muted">Escribe para buscar.</div>'; return; }
   if (view !== 'sale') return;
   clearTimeout(saveT);
   saveT = setTimeout(() => { t.dispatchEvent(new Event('change', { bubbles: true })); }, 500);
@@ -718,9 +819,9 @@ function schedule() {
     if (any) syncAll(false);
   }, 20000);
 }
-window.addEventListener('online', () => { softRender(); syncAll(false); });
+window.addEventListener('online', () => { softRender(); syncAll(false); refreshCatalog(false); });
 window.addEventListener('offline', () => { softRender(); });
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { softRender(); syncAll(false); } });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { softRender(); syncAll(false); refreshCatalog(false); } });
 
 (async function init() {
   try {
@@ -733,11 +834,13 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
   if (!dev) { dev = rand(3); await setMeta('dev', dev); }
   await loadCfg();
   await readHashCfg();
+  await loadCatalog();
   if (navigator.storage && navigator.storage.persist) { try { storagePersisted = await navigator.storage.persist(); } catch (e) {} }
   if ('serviceWorker' in navigator) { try { await navigator.serviceWorker.register('sw.js'); } catch (e) {} }
   await render();
   schedule();
   syncAll(false);
+  refreshCatalog(false);
 })();
 })();
 </script>

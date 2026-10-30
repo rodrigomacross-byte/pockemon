@@ -1,5 +1,5 @@
 /* Service worker de Ventas feria: deja la app disponible sin internet. */
-const CACHE = 'ventas-feria-v2';
+const CACHE = 'ventas-feria-v3';
 const ASSETS = [
   './',
   './index.html',
